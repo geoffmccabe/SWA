@@ -14,7 +14,7 @@ if (!fs.existsSync(TEMP_DIR)) {
 }
 
 // --- MIDDLEWARE ---
-// Serve static files (like index.html) from the parent directory
+// Serve static files like CSS or other JS files if you add them later
 app.use(express.static(path.join(__dirname, '..')));
 // Use a large limit to accommodate potentially large SVG strings in API requests
 app.use(express.json({ limit: '10mb' }));
@@ -66,6 +66,14 @@ app.post('/api/render-mp4', (req, res) => {
 app.post('/api/render-webp', (req, res) => {
   render(req, res, 'webp');
 });
+
+
+// --- FRONTEND HANDLER ---
+// This will serve the index.html file for any GET request that doesn't match an API route.
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'index.html'));
+});
+
 
 // --- SERVER STARTUP ---
 app.listen(PORT, () => {
