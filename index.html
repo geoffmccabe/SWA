@@ -40,8 +40,15 @@
         position: relative;
       }
       .top-section { display: flex; flex-grow: 1; gap: var(--panel-gap); padding: var(--panel-gap); height: 60%; }
-      .bottom-section { height: 40%; padding: 0 var(--panel-gap) var(--panel-gap); border-top: 1px solid var(--color-border); display: flex; flex-direction: column;}
+      .bottom-section { 
+        height: 40%; 
+        padding: 10px var(--panel-gap) var(--panel-gap); 
+        /* border-top removed */
+        display: flex; 
+        flex-direction: column;
+      }
       .panel { background-color: var(--color-surface); border-radius: 8px; padding: 15px; overflow: auto; }
+      .top-section > .panel:nth-child(1) { overflow: hidden; } /* Remove slider on left panel */
       .top-section > .panel:nth-child(3) { overflow: hidden; }
       .placeholder-text, .placeholder-timeline { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #888; font-style: italic; text-align: center; }
       .placeholder-text h2 { margin: 0 0 10px 0; color: #aaa; font-style: normal; }
@@ -64,6 +71,15 @@
       .help-text, label { font-size: 12px; color: #999; margin-bottom: 5px; display: block; }
       .export-buttons { display: flex; gap: 5px; }
       .export-buttons button { width: 100%; margin-bottom: 0; }
+      .dimensions-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .dimensions-grid div {
+        display: flex;
+        flex-direction: column;
+      }
 
       /* --- MIDDLE PANEL (THUMBNAILS) --- */
       .thumbnail-grid {
@@ -125,8 +141,8 @@
       .live-preview { max-width: 100%; max-height: 100%; object-fit: contain; }
 
       /* --- BOTTOM PANEL (TIMELINE) --- */
-      .timeline-container { padding-top: 15px; display: flex; flex-direction: column; height: 100%; }
-      .timeline-controls, .edit-form { padding: 10px; background-color: var(--color-surface); border-radius: 8px; margin-bottom: 15px; }
+      .timeline-container { padding-top: 25px; display: flex; flex-direction: column; height: 100%; position: relative; }
+      .timeline-controls, .edit-form { padding: 10px; background-color: var(--color-surface); border-radius: 8px; margin-bottom: 15px; position: absolute; top: 0; left: 0; width: 100%; }
       .timeline-controls h4, .edit-form h4 { margin: 0 0 10px; }
       .timeline-controls .button-group {
         display: flex;
@@ -137,7 +153,7 @@
         flex-grow: 1;
         margin-bottom: 0;
       }
-      .timeline-rows-wrapper { flex-grow: 1; position: relative; }
+      .timeline-rows-wrapper { flex-grow: 1; position: relative; margin-top: 60px; /* Space for controls */ }
       .timeline-row { position: relative; height: 33.33%; border-top: 1px solid var(--color-border); }
       .timeline-row:first-child { border-top: none; }
       .time-ruler {
@@ -241,10 +257,16 @@
         
                 <div class="control-group">
                   <h3>Dimensions</h3>
-                  <label>Width (px)</label>
-                  <input type="number" v-model="project.projectWidth" @input="updatePreview">
-                  <label>Height (px)</label>
-                  <input type="number" v-model="project.projectHeight" @input="updatePreview">
+                  <div class="dimensions-grid">
+                      <div>
+                          <label>Width (px)</label>
+                          <input type="number" v-model="project.projectWidth" @input="updatePreview">
+                      </div>
+                      <div>
+                          <label>Height (px)</label>
+                          <input type="number" v-model="project.projectHeight" @input="updatePreview">
+                      </div>
+                  </div>
                 </div>
               </div>
         
@@ -293,51 +315,62 @@
         
             <div class="bottom-section">
               <div class="timeline-container">
-                  <div class="timeline-controls">
+                  <div v-if="selectedImage">
+                    <div v-if="selectedBlock" class="edit-form">
+                        <h4>Edit {{ selectedBlock.type }} Animation</h4>
+                        <div class="form-grid" @input="updatePreview">
+                            <div><label>Start Time (s)</label><input type="number" v-model.number="selectedBlock.startTime" min="0" step="0.1"></div>
+                            <div><label>Duration (s)</label><input type="number" v-model.number="selectedBlock.duration" min="0.1" step="0.1"></div>
+          
+                            <template v-if="selectedBlock.type === 'pan'">
+                                <div><label>Direction</label><select v-model="selectedBlock.parameters.direction"><option>left</option><option>right</option><option>up</option><option>down</option></select></div>
+                                <div><label>Distance (px)</label><input type="number" v-model="selectedBlock.parameters.distance"></div>
+                            </template>
+                            <template v-if="selectedBlock.type === 'zoom'">
+                                <div><label>Start Scale</label><input type="number" step="0.1" v-model="selectedBlock.parameters.startScale"></div>
+                                <div><label>End Scale</label><input type="number" step="0.1" v-model="selectedBlock.parameters.endScale"></div>
+                            </template>
+                            <template v-if="selectedBlock.type === 'rotate'">
+                                <div><label>Degrees</label><input type="number" v-model="selectedBlock.parameters.degrees"></div>
+                                <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateX" :disabled="selectedBlock.parameters.useCenter"></div>
+                                <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateY" :disabled="selectedBlock.parameters.useCenter"></div>
+                            </template>
+                            <template v-if="selectedBlock.type === 'opacity'">
+                                <div><label>Start Opacity</label><input type="number" step="0.1" min="0" max="1" v-model="selectedBlock.parameters.startOpacity"></div>
+                                <div><label>End Opacity</label><input type="number" step="0.1" min="0" max="1" v-model="selectedBlock.parameters.endOpacity"></div>
+                            </template>
+                        </div>
+                         <div class="form-footer">
+                             <div class="checkbox-group" @change="updatePreview">
+                                 <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.loop"> Loop</label>
+                                 <template v-if="selectedBlock.parameters.hasOwnProperty('autoReverse')">
+                                     <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.autoReverse"> Auto-Reverse</label>
+                                 </template>
+                                  <template v-if="selectedBlock.type === 'rotate'">
+                                     <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.useCenter"> Rotate Around Center</label>
+                                 </template>
+                             </div>
+                             <button class="delete-btn" @click="deleteAnimationBlock(selectedBlock.id)">Delete Block</button>
+                         </div>
+                    </div>
+                    <div v-else class="timeline-controls">
+                        <h4>Add Animation Block</h4>
+                        <div class="button-group">
+                          <button @click="addAnimationBlock('pan')">Pan</button>
+                          <button @click="addAnimationBlock('zoom')">Zoom</button>
+                          <button @click="addAnimationBlock('rotate')">Rotate</button>
+                          <button @click="addAnimationBlock('opacity')">Opacity</button>
+                        </div>
+                    </div>
+                  </div>
+                  <div v-else class="timeline-controls">
                       <h4>Add Animation Block</h4>
                       <div class="button-group">
-                        <button @click="addAnimationBlock('pan')" :disabled="!selectedImage">Pan</button>
-                        <button @click="addAnimationBlock('zoom')" :disabled="!selectedImage">Zoom</button>
-                        <button @click="addAnimationBlock('rotate')" :disabled="!selectedImage">Rotate</button>
-                        <button @click="addAnimationBlock('opacity')" :disabled="!selectedImage">Opacity</button>
+                        <button disabled>Pan</button>
+                        <button disabled>Zoom</button>
+                        <button disabled>Rotate</button>
+                        <button disabled>Opacity</button>
                       </div>
-                  </div>
-                  <div v-if="selectedImage && selectedBlock" class="edit-form">
-                      <h4>Edit {{ selectedBlock.type }} Animation</h4>
-                      <div class="form-grid" @input="updatePreview">
-                          <div><label>Start Time (s)</label><input type="number" v-model.number="selectedBlock.startTime" min="0" step="0.1"></div>
-                          <div><label>Duration (s)</label><input type="number" v-model.number="selectedBlock.duration" min="0.1" step="0.1"></div>
-        
-                          <template v-if="selectedBlock.type === 'pan'">
-                              <div><label>Direction</label><select v-model="selectedBlock.parameters.direction"><option>left</option><option>right</option><option>up</option><option>down</option></select></div>
-                              <div><label>Distance (px)</label><input type="number" v-model="selectedBlock.parameters.distance"></div>
-                          </template>
-                          <template v-if="selectedBlock.type === 'zoom'">
-                              <div><label>Start Scale</label><input type="number" step="0.1" v-model="selectedBlock.parameters.startScale"></div>
-                              <div><label>End Scale</label><input type="number" step="0.1" v-model="selectedBlock.parameters.endScale"></div>
-                          </template>
-                          <template v-if="selectedBlock.type === 'rotate'">
-                              <div><label>Degrees</label><input type="number" v-model="selectedBlock.parameters.degrees"></div>
-                              <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateX" :disabled="selectedBlock.parameters.useCenter"></div>
-                              <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateY" :disabled="selectedBlock.parameters.useCenter"></div>
-                          </template>
-                          <template v-if="selectedBlock.type === 'opacity'">
-                              <div><label>Start Opacity</label><input type="number" step="0.1" min="0" max="1" v-model="selectedBlock.parameters.startOpacity"></div>
-                              <div><label>End Opacity</label><input type="number" step="0.1" min="0" max="1" v-model="selectedBlock.parameters.endOpacity"></div>
-                          </template>
-                      </div>
-                       <div class="form-footer">
-                           <div class="checkbox-group" @change="updatePreview">
-                               <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.loop"> Loop</label>
-                               <template v-if="selectedBlock.parameters.hasOwnProperty('autoReverse')">
-                                   <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.autoReverse"> Auto-Reverse</label>
-                               </template>
-                                <template v-if="selectedBlock.type === 'rotate'">
-                                   <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.useCenter"> Rotate Around Center</label>
-                               </template>
-                           </div>
-                           <button class="delete-btn" @click="deleteAnimationBlock(selectedBlock.id)">Delete Block</button>
-                       </div>
                   </div>
                   
                   <div class="timeline-rows-wrapper" ref="timelineWrapper" @dragover.prevent @drop="onBlockDrop">
@@ -424,9 +457,12 @@
           // --- METHODS ---
           updatePreview() {
             const { projectWidth, projectHeight, images } = this.project;
+            
             if (images.length === 0) {
-                if(this.livePreviewSvgUrl) URL.revokeObjectURL(this.livePreviewSvgUrl);
-                this.livePreviewSvgUrl = '';
+                if(this.livePreviewSvgUrl) {
+                    URL.revokeObjectURL(this.livePreviewSvgUrl);
+                    this.livePreviewSvgUrl = '';
+                }
                 return;
             };
 
@@ -531,20 +567,33 @@
             }
             return rows[rowIndex];
           },
-          handleImageUpload(e) {
+          async handleImageUpload(e) {
             const files = e.target.files;
             if (this.project.images.length + files.length > 10) { alert("Error: You can upload a maximum of 10 images."); return; }
-            [...files].forEach(file => {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    this.project.images.push({
-                        id: `img_${Date.now()}_${Math.random()}`, name: file.name, base64Data: event.target.result,
-                        order: this.project.images.length, animationBlocks: [],
-                    });
-                    this.updatePreview();
-                };
-                reader.readAsDataURL(file);
+            
+            const promises = [...files].map(file => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const newImage = {
+                            id: `img_${Date.now()}_${Math.random()}`, name: file.name, base64Data: event.target.result,
+                            order: this.project.images.length + promises.length, animationBlocks: [],
+                        };
+                        resolve(newImage);
+                    };
+                    reader.onerror = (error) => reject(error);
+                    reader.readAsDataURL(file);
+                });
             });
+
+            try {
+                const newImages = await Promise.all(promises);
+                this.project.images.push(...newImages);
+                this.updatePreview();
+            } catch (error) {
+                console.error("Error reading files:", error);
+                alert("There was an error loading one or more images.");
+            }
           },
           selectImage(id) { this.project.selectedImageId = id; this.selectedBlock = null; },
           deleteImage(id) {
@@ -599,7 +648,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ svg: svgData })
                 });
-                if (!response.ok) { throw new Error(`Server responded with status: ${response.status}`); }
+                if (!response.ok) { throw new Error(`Server responded with status: ${response.status} ${await response.text()}`); }
                 const blob = await response.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -608,7 +657,7 @@
                 URL.revokeObjectURL(url); document.body.removeChild(a);
             } catch (error) {
                 console.error('Export failed:', error);
-                alert(`Export failed. See console for details.`);
+                alert(`Export failed: ${error.message}`);
             } finally {
                 this.isRendering = false;
             }
