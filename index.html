@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -282,8 +281,8 @@
                   <div v-if="selectedBlock" class="edit-form">
                       <h4>Edit {{ selectedBlock.type }} Animation</h4>
                       <div class="form-grid">
-                          <div><label>Start Time (s)</label><input type="number" v-model="selectedBlock.startTime" min="0" step="0.1"></div>
-                          <div><label>Duration (s)</label><input type="number" v-model="selectedBlock.duration" min="0.1" step="0.1"></div>
+                          <div><label>Start Time (s)</label><input type="number" v-model.number="selectedBlock.startTime" min="0" step="0.1"></div>
+                          <div><label>Duration (s)</label><input type="number" v-model.number="selectedBlock.duration" min="0.1" step="0.1"></div>
         
                           <template v-if="selectedBlock.type === 'pan'">
                               <div><label>Direction</label><select v-model="selectedBlock.parameters.direction"><option>left</option><option>right</option><option>up</option><option>down</option></select></div>
@@ -295,8 +294,8 @@
                           </template>
                           <template v-if="selectedBlock.type === 'rotate'">
                               <div><label>Degrees</label><input type="number" v-model="selectedBlock.parameters.degrees"></div>
-                              <div><label>Center X (px)</label><input type="number" v-model="selectedBlock.parameters.rotateX" :disabled="selectedBlock.parameters.useCenter"></div>
-                              <div><label>Center Y (px)</label><input type="number" v-model="selectedBlock.parameters.rotateY" :disabled="selectedBlock.parameters.useCenter"></div>
+                              <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateX" :disabled="selectedBlock.parameters.useCenter"></div>
+                              <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateY" :disabled="selectedBlock.parameters.useCenter"></div>
                           </template>
                           <template v-if="selectedBlock.type === 'opacity'">
                               <div><label>Start Opacity</label><input type="number" step="0.1" min="0" max="1" v-model="selectedBlock.parameters.startOpacity"></div>
@@ -400,33 +399,24 @@
             const seconds = [];
             const tenths = [];
             const numSeconds = Math.floor(this.timelineDuration);
-
             for (let i = 0; i <= this.timelineDuration * 10; i++) {
-                if (i % 10 !== 0) {
-                    tenths.push(i * 100 / (this.timelineDuration * 10));
-                }
+                if (i % 10 !== 0) tenths.push(i * 100 / (this.timelineDuration * 10));
             }
             for (let i = 0; i <= numSeconds; i++) {
-                seconds.push({
-                    pos: (i / this.timelineDuration) * 100,
-                    label: i
-                });
+                seconds.push({ pos: (i / this.timelineDuration) * 100, label: i });
             }
             return { seconds, tenths };
           },
           
-          // This computed property generates the SVG content string.
-          // Any reactive property used inside it will trigger its re-calculation.
           get aSvgContent() {
             const { projectWidth, projectHeight, images } = this.project;
+            if (images.length === 0) return '';
             const imagesToRender = [...images].sort((a, b) => b.order - a.order);
             const canvasCenterX = projectWidth / 2;
             const canvasCenterY = projectHeight / 2;
-
             const imageElements = imagesToRender.map(image => {
                 const animationElements = image.animationBlocks.map(block => {
                     const repeatCount = block.loop ? 'indefinite' : '1';
-                    
                     switch (block.type) {
                         case 'pan': {
                             const { direction, distance, autoReverse } = block.parameters;
@@ -449,7 +439,6 @@
                             const cx = useCenter ? canvasCenterX : rotateX;
                             const cy = useCenter ? canvasCenterY : rotateY;
                             const midDegrees = degrees / 2;
-
                             if (autoReverse) {
                                 return `<animateTransform attributeName="transform" type="rotate" values="0 ${cx} ${cy}; ${degrees} ${cx} ${cy}; 0 ${cx} ${cy}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" />`;
                             }
@@ -510,7 +499,6 @@
             }
             return rows[rowIndex];
           },
-
           handleImageUpload(e) {
             const files = e.target.files;
             if (this.project.images.length + files.length > 10) {
@@ -531,12 +519,10 @@
                 reader.readAsDataURL(file);
             });
           },
-
           selectImage(id) {
             this.project.selectedImageId = id;
             this.selectedBlock = null;
           },
-
           deleteImage(id) {
               const imageToDelete = this.project.images.find(img => img.id === id);
               if (!imageToDelete) return;
@@ -551,7 +537,6 @@
                   this.project.selectedImageId = null;
               }
           },
-
           saveProject() {
             const projectJSON = JSON.stringify(this.project);
             localStorage.setItem('webpAnimatorProject', projectJSON);
@@ -562,7 +547,6 @@
             a.click();
             URL.revokeObjectURL(a.href);
           },
-
           handleProjectLoad(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -582,7 +566,6 @@
             };
             reader.readAsText(file);
           },
-
           exportSVG() {
             const svgData = this.aSvgContent;
             const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
@@ -596,7 +579,6 @@
             URL.revokeObjectURL(url);
             document.body.removeChild(a);
           },
-
           async exportVideo(format) {
             if (!BACKEND_URL || BACKEND_URL === 'PASTE_YOUR_RAILWAY_URL_HERE') {
                 alert('Backend URL is not configured. Please edit the index.html file.');
@@ -628,7 +610,6 @@
                 this.isRendering = false;
             }
           },
-
           onDragStart(index) { this.dragStartIndex = index; },
           onDragOver(index) { this.dragOverIndex = index; },
           onDragLeave() { this.dragOverIndex = null; },
@@ -648,7 +629,6 @@
               this.dragStartIndex = null;
               this.dragOverIndex = null;
           },
-
           openContextMenu(event, imageId) {
             this.contextMenu.targetId = imageId;
             this.contextMenu.x = event.clientX;
@@ -657,7 +637,6 @@
             window.addEventListener('click', this.closeContextMenu, { once: true });
           },
           closeContextMenu() { this.contextMenu.visible = false; },
-
           addAnimationBlock(type) {
             if (!this.selectedImage) return;
             const isLoopingByDefault = ['pan', 'zoom', 'rotate', 'opacity'].includes(type);
@@ -674,7 +653,6 @@
             this.selectedImage.animationBlocks.push(newBlock);
             this.selectBlock(newBlock);
           },
-
           deleteAnimationBlock(id) {
             if (!this.selectedImage) return;
             this.selectedImage.animationBlocks = this.selectedImage.animationBlocks.filter(b => b.id !== id);
@@ -682,7 +660,6 @@
                 this.selectedBlock = null;
             }
           },
-
           selectBlock(block) { this.selectedBlock = block; },
         
           onBlockDragStart(event, block) {
@@ -726,20 +703,26 @@
             const savedProject = localStorage.getItem('webpAnimatorProject');
             if (savedProject) {
                 try {
-                const data = JSON.parse(savedProject);
-                this.project = data;
+                    const data = JSON.parse(savedProject);
+                    this.project = data;
                 } catch {
-                localStorage.removeItem('webpAnimatorProject');
+                    localStorage.removeItem('webpAnimatorProject');
                 }
             }
-            // Watch for any changes in the project data and regenerate the preview
-            this.$watch('aSvgContent', (newSvg) => {
-                const blob = new Blob([newSvg], { type: 'image/svg+xml' });
+            
+            // Correct watcher for petite-vue using $effect
+            this.$effect(() => {
+                const svgContent = this.aSvgContent;
                 if (this.livePreviewSvgUrl) {
                     URL.revokeObjectURL(this.livePreviewSvgUrl);
                 }
-                this.livePreviewSvgUrl = URL.createObjectURL(blob);
-            }, { immediate: true });
+                if (svgContent) {
+                    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+                    this.livePreviewSvgUrl = URL.createObjectURL(blob);
+                } else {
+                    this.livePreviewSvgUrl = '';
+                }
+            });
           }
         }
       }
