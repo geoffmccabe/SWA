@@ -1,23 +1,19 @@
-# Use a Node.js base image
-FROM node:18-slim
+FROM node:18-alpine
 
-# Install FFmpeg
-RUN apt-get update && apt-get install -y ffmpeg
-
-# Set up the working directory
 WORKDIR /app
 
-# Copy the backend's package files
-COPY backend/package*.json ./
+# Install system dependencies
+RUN apk add --no-cache ffmpeg
 
-# Install backend dependencies
+# Copy package files first (for caching)
+COPY package*.json ./
+
+# Install Node dependencies
 RUN npm install --production
 
-# Copy the ENTIRE repository content into the container
+# Copy all files
 COPY . .
 
-# Expose the port the app will run on
-EXPOSE 3000
+EXPOSE 8080
 
-# Define the command to start the app, pointing to the backend's index.js
-CMD ["node", "backend/index.js"]
+CMD ["node", "index.js"]
