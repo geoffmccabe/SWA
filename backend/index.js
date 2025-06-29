@@ -65,6 +65,11 @@ app.post('/api/render-webp', (req, res) => {
   render(req, res, 'webp');
 });
 
+// Health check endpoint for Railway
+app.get('/', (req, res) => {
+  res.status(200).send('Renderer is running.');
+});
+
 app.listen(PORT, () => {
   console.log(`Renderer server listening on port ${PORT}`);
 });
