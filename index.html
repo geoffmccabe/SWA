@@ -1,0 +1,741 @@
+<template>
+  <div id="app-container">
+    <!-- TOP SECTION -->
+    <div class="top-section">
+
+      <!-- ======================================================= -->
+      <!-- ==================== LEFT PANEL ======================= -->
+      <!-- ======================================================= -->
+      <div class="panel" style="flex: 1 1 auto;">
+        <div class="control-group">
+          <h3>Project</h3>
+          <button @click="saveProject">Save Project</button>
+          <label class="button-like">Load Project
+            <input type="file" @change="handleProjectLoad" accept=".json" style="display: none;">
+          </label>
+          <button @click="exportSVG">Export SVG</button>
+          <button disabled title="Coming soon—MP4 requires server encoding.">Export MP4</button>
+        </div>
+
+        <div class="control-group">
+          <h3>Images</h3>
+          <label class="button-like">Load Images
+            <input type="file" @change="handleImageUpload" multiple accept="image/webp,image/jpeg,image/png" style="display: none;">
+          </label>
+          <p class="help-text">Upload up to 10 WebP, JPG, or PNG files.</p>
+        </div>
+
+        <div class="control-group">
+          <h3>Dimensions</h3>
+          <label>Width (px)</label>
+          <input type="number" v-model.number="project.projectWidth">
+          <label>Height (px)</label>
+          <input type="number" v-model.number="project.projectHeight">
+        </div>
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- =================== MIDDLE PANEL ====================== -->
+      <!-- ======================================================= -->
+      <div class="panel" style="flex: 0 0 20%; min-width: 0;" @contextmenu.prevent>
+        <div class="thumbnail-grid">
+            <div
+              v-for="(image, index) in sortedImages"
+              :key="image.id"
+              class="thumbnail-item"
+              :class="{ selected: image.id === project.selectedImageId, 'drag-over': dragOverIndex === index }"
+              :draggable="true"
+              @click="selectImage(image.id)"
+              @contextmenu.prevent="openContextMenu($event, image.id)"
+              @dragstart="onDragStart(index)"
+              @dragover.prevent="onDragOver(index)"
+              @dragleave="onDragLeave"
+              @drop="onDrop(index)"
+            >
+              <div class="thumbnail-image-container">
+                  <img :src="image.base64Data" alt="thumbnail">
+              </div>
+              <span>{{ index + 1 }} - {{ image.name }}</span>
+            </div>
+        </div>
+        <div v-if="!project.images.length" class="placeholder-text">Upload images to begin</div>
+        <!-- Context Menu for Image Deletion -->
+        <div v-if="contextMenu.visible" class="context-menu" :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }" @mouseleave="closeContextMenu">
+          <div class="context-item" @click="deleteImage(contextMenu.targetId)">Delete Image</div>
+        </div>
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- =================== RIGHT PANEL ======================= -->
+      <!-- ======================================================= -->
+      <div class="panel" style="flex: 0 0 60%; display: flex; align-items: center; justify-content: center;">
+         <div v-if="isSafari" class="safari-warning">
+            Note: Live preview may not display correctly in Safari. Your export will still work.
+         </div>
+         <object type="image/svg+xml" :data="livePreviewSvgUrl" class="live-preview"></object>
+      </div>
+    </div>
+
+    <!-- BOTTOM SECTION (TIMELINE) -->
+    <div class="bottom-section">
+      <div v-if="selectedImage" class="timeline-container">
+          <!-- Animation Edit Form -->
+          <div v-if="selectedBlock" class="edit-form">
+              <h4>Edit {{ selectedBlock.type }} Animation</h4>
+              <div class="form-grid">
+                  <div><label>Start Time (s)</label><input type="number" v-model.number="selectedBlock.startTime" min="0" step="0.1"></div>
+                  <div><label>Duration (s)</label><input type="number" v-model.number="selectedBlock.duration" min="0.1" step="0.1"></div>
+
+                  <!-- Pan Params -->
+                  <template v-if="selectedBlock.type === 'pan'">
+                      <div><label>Direction</label><select v-model="selectedBlock.parameters.direction"><option>left</option><option>right</option><option>up</option><option>down</option></select></div>
+                      <div><label>Distance (px)</label><input type="number" v-model.number="selectedBlock.parameters.distance"></div>
+                  </template>
+                  <!-- Zoom Params -->
+                  <template v-if="selectedBlock.type === 'zoom'">
+                      <div><label>Start Scale</label><input type="number" step="0.1" v-model.number="selectedBlock.parameters.startScale"></div>
+                      <div><label>End Scale</label><input type="number" step="0.1" v-model.number="selectedBlock.parameters.endScale"></div>
+                  </template>
+                  <!-- Rotate Params -->
+                  <template v-if="selectedBlock.type === 'rotate'">
+                      <div><label>Degrees</label><input type="number" v-model.number="selectedBlock.parameters.degrees"></div>
+                      <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateX" :disabled="selectedBlock.parameters.useCenter"></div>
+                      <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateY" :disabled="selectedBlock.parameters.useCenter"></div>
+                  </template>
+                  <!-- Opacity Params -->
+                  <template v-if="selectedBlock.type === 'opacity'">
+                      <div><label>Start Opacity</label><input type="number" step="0.1" min="0" max="1" v-model.number="selectedBlock.parameters.startOpacity"></div>
+                      <div><label>End Opacity</label><input type="number" step="0.1" min="0" max="1" v-model.number="selectedBlock.parameters.endOpacity"></div>
+                  </template>
+              </div>
+               <div class="form-footer">
+                   <div class="checkbox-group">
+                       <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.loop"> Loop</label>
+                       <template v-if="selectedBlock.parameters.hasOwnProperty('autoReverse')">
+                           <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.autoReverse"> Auto-Reverse</label>
+                       </template>
+                        <template v-if="selectedBlock.type === 'rotate'">
+                           <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.useCenter"> Rotate Around Center</label>
+                       </template>
+                   </div>
+                   <button class="delete-btn" @click="deleteAnimationBlock(selectedBlock.id)">Delete Block</button>
+               </div>
+          </div>
+          <div v-else class="timeline-controls">
+              <h4>Add Animation Block</h4>
+              <div class="button-group">
+                <button @click="addAnimationBlock('pan')">Pan</button>
+                <button @click="addAnimationBlock('zoom')">Zoom</button>
+                <button @click="addAnimationBlock('rotate')">Rotate</button>
+                <button @click="addAnimationBlock('opacity')">Opacity</button>
+              </div>
+          </div>
+          <!-- Timeline Rows -->
+          <div class="timeline-rows-wrapper" ref="timelineWrapperRef" @dragover.prevent @drop="onBlockDrop">
+              <div class="time-ruler">
+                  <!-- Tenth-second lines -->
+                  <div v-for="mark in timelineMarks.tenths" :key="'tenth-' + mark" class="ruler-line tenth" :style="{ left: mark + '%' }"></div>
+                  <!-- Second lines -->
+                  <div v-for="mark in timelineMarks.seconds" :key="'sec-' + mark.pos" class="ruler-line second" :style="{ left: mark.pos + '%' }"></div>
+                  <!-- Second labels -->
+                  <div v-for="mark in timelineMarks.seconds" :key="'label-' + mark.pos" class="ruler-label" :style="{ left: mark.pos + '%' }">{{ mark.label }}s</div>
+              </div>
+              <div v-for="rowIndex in [0, 1, 2]" :key="rowIndex" class="timeline-row">
+                  <!-- Animation Blocks -->
+                  <div
+                      v-for="block in blocksByRow[rowIndex]"
+                      :key="block.id"
+                      class="animation-block"
+                      :class="[block.type, { 'selected': selectedBlock && selectedBlock.id === block.id }]"
+                      :style="{ left: `${(block.startTime / timelineDuration) * 100}%`, width: `${(block.duration / timelineDuration) * 100}%` }"
+                      draggable="true"
+                      @dragstart="onBlockDragStart($event, block)"
+                      @click="selectBlock(block)"
+                  >
+                      <img v-if="selectedImage" :src="selectedImage.base64Data" class="block-thumbnail">
+                      <span>{{ block.type }}</span>
+                  </div>
+              </div>
+              <div v-if="overlapError" class="error-message">Cannot overlap more than 3 animations.</div>
+          </div>
+      </div>
+      <div v-else class="placeholder-timeline">
+        Select an image to view or add animations.
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, computed, watch, onMounted } from 'vue';
+
+// --- STATE MANAGEMENT ---
+const project = reactive({
+  projectWidth: 800,
+  projectHeight: 600,
+  images: [], // { id, name, base64Data, order, animationBlocks }
+  selectedImageId: null,
+});
+const selectedBlock = ref(null);
+const timelineWrapperRef = ref(null);
+const timelineDuration = ref(10); // Default timeline view duration in seconds
+const overlapError = ref(false);
+let draggedBlockInfo = null; // To store info during drag
+
+// --- COMPUTED PROPERTIES ---
+const sortedImages = computed(() => [...project.images].sort((a, b) => a.order - b.order));
+const selectedImage = computed(() => project.images.find(img => img.id === project.selectedImageId));
+
+const timelineMarks = computed(() => {
+    const seconds = [];
+    const tenths = [];
+    const numSeconds = Math.floor(timelineDuration.value);
+
+    for (let i = 0; i <= timelineDuration.value * 10; i++) {
+        if (i % 10 !== 0) {
+             tenths.push(i * 100 / (timelineDuration.value * 10));
+        }
+    }
+    for (let i = 0; i <= numSeconds; i++) {
+        seconds.push({
+            pos: (i / timelineDuration.value) * 100,
+            label: i
+        });
+    }
+    return { seconds, tenths };
+});
+
+
+// Dynamically generate SVG content for live preview
+const livePreviewSvgContent = computed(() => {
+  const { projectWidth, projectHeight } = project;
+  const imagesToRender = [...project.images].sort((a, b) => b.order - a.order);
+  const canvasCenterX = projectWidth / 2;
+  const canvasCenterY = projectHeight / 2;
+
+  const imageElements = imagesToRender.map(image => {
+    const animationElements = image.animationBlocks.map(block => {
+      const repeatCount = block.loop ? 'indefinite' : '1';
+      
+      switch (block.type) {
+        case 'pan': {
+          const { direction, distance, autoReverse } = block.parameters;
+          const pans = { right: `${distance} 0`, left: `${-distance} 0`, up: `0 ${-distance}`, down: `0 ${distance}` };
+          const to = pans[direction];
+          if (autoReverse) {
+              return `<animateTransform attributeName="transform" type="translate" values="0 0; ${to}; 0 0" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
+          }
+          return `<animateTransform attributeName="transform" type="translate" from="0 0" to="${to}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
+        }
+        case 'zoom': {
+          const { startScale, endScale, autoReverse } = block.parameters;
+           if (autoReverse) {
+              return `<animateTransform attributeName="transform" type="scale" values="${startScale}; ${endScale}; ${startScale}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
+          }
+          return `<animateTransform attributeName="transform" type="scale" from="${startScale}" to="${endScale}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
+        }
+        case 'rotate': {
+            const { degrees, autoReverse, useCenter, rotateX, rotateY } = block.parameters;
+            const cx = useCenter ? canvasCenterX : rotateX;
+            const cy = useCenter ? canvasCenterY : rotateY;
+            const midDegrees = degrees / 2;
+
+            if (autoReverse) {
+                return `<animateTransform attributeName="transform" type="rotate" values="0 ${cx} ${cy}; ${degrees} ${cx} ${cy}; 0 ${cx} ${cy}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" />`;
+            }
+            return `<animateTransform attributeName="transform" type="rotate" values="0 ${cx} ${cy}; ${midDegrees} ${cx} ${cy}; ${degrees} ${cx} ${cy}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" />`;
+        }
+        case 'opacity': {
+            const { startOpacity, endOpacity, autoReverse } = block.parameters;
+            if(autoReverse) {
+                 return `<animate attributeName="opacity" values="${startOpacity}; ${endOpacity}; ${startOpacity}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
+            }
+            return `<animate attributeName="opacity" from="${startOpacity}" to="${endOpacity}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
+        }
+      }
+    }).join('\n          ');
+
+    return `
+    <g>
+      <image 
+        href="${image.base64Data}" 
+        x="0" y="0" 
+        width="${projectWidth}" 
+        height="${projectHeight}" 
+        preserveAspectRatio="xMidYMid slice"
+      />
+      ${animationElements}
+    </g>`;
+  }).join('');
+  
+  return `<svg 
+      width="${projectWidth}" 
+      height="${projectHeight}" 
+      viewBox="0 0 ${projectWidth} ${projectHeight}" 
+      xmlns="http://www.w3.org/2000/svg"
+    >
+    <style>g { transform-box: fill-box; transform-origin: center; }</style>
+    ${imageElements}
+  </svg>`;
+});
+
+const livePreviewSvgUrl = ref('');
+watch(livePreviewSvgContent, (newSvg) => {
+  const blob = new Blob([newSvg], { type: 'image/svg+xml' });
+  if (livePreviewSvgUrl.value) {
+    URL.revokeObjectURL(livePreviewSvgUrl.value);
+  }
+  livePreviewSvgUrl.value = URL.createObjectURL(blob);
+}, { immediate: true, deep: true });
+
+// --- IMAGE & PROJECT HANDLING ---
+const handleImageUpload = (e) => {
+  const files = e.target.files;
+  if (project.images.length + files.length > 10) {
+    alert("Error: You can upload a maximum of 10 images.");
+    return;
+  }
+  [...files].forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      project.images.push({
+        id: `img_${Date.now()}_${Math.random()}`,
+        name: file.name,
+        base64Data: event.target.result,
+        order: project.images.length,
+        animationBlocks: [],
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
+const selectImage = (id) => {
+  project.selectedImageId = id;
+  selectedBlock.value = null;
+};
+
+const deleteImage = (id) => {
+    const imageToDelete = project.images.find(img => img.id === id);
+    if (!imageToDelete) return;
+
+    const deletedOrder = imageToDelete.order;
+    project.images = project.images.filter(img => img.id !== id);
+
+    project.images.forEach(img => {
+        if (img.order > deletedOrder) {
+            img.order--;
+        }
+    });
+
+    if (project.selectedImageId === id) {
+        project.selectedImageId = null;
+    }
+};
+
+const saveProject = () => {
+  const projectJSON = JSON.stringify(project);
+  localStorage.setItem('webpAnimatorProject', projectJSON);
+  const blob = new Blob([projectJSON], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'my-animation-project.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+const handleProjectLoad = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const data = JSON.parse(event.target.result);
+      if (data.projectWidth && data.projectHeight && Array.isArray(data.images)) {
+        Object.assign(project, data);
+        selectImage(data.selectedImageId || null);
+      } else {
+        alert('Invalid project file format.');
+      }
+    } catch {
+      alert('Error parsing project file.');
+    }
+  };
+  reader.readAsText(file);
+};
+
+const exportSVG = () => {
+  const svgData = livePreviewSvgContent.value;
+  const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.style.display = 'none';
+  a.href = url;
+  a.download = 'animated-scene.svg';
+  document.body.appendChild(a);
+  a.click();
+  URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+};
+
+onMounted(() => {
+  const savedProject = localStorage.getItem('webpAnimatorProject');
+  if (savedProject) {
+    try {
+      const data = JSON.parse(savedProject);
+      Object.assign(project, data);
+    } catch {
+      localStorage.removeItem('webpAnimatorProject');
+    }
+  }
+});
+
+// --- IMAGE DRAG & DROP FOR REORDERING ---
+const dragStartIndex = ref(null);
+const dragOverIndex = ref(null);
+
+const onDragStart = (index) => {
+  dragStartIndex.value = index;
+};
+
+const onDragOver = (index) => {
+    dragOverIndex.value = index;
+};
+
+const onDragLeave = () => {
+    dragOverIndex.value = null;
+};
+
+const onDrop = (dropIndex) => {
+    if (dragStartIndex.value === null || dragStartIndex.value === dropIndex) {
+      dragStartIndex.value = null;
+      dragOverIndex.value = null;
+      return;
+    }
+
+    const draggedImage = sortedImages.value[dragStartIndex.value];
+    const targetImage = sortedImages.value[dropIndex];
+
+    if (draggedImage && targetImage) {
+        const draggedOrder = draggedImage.order;
+        draggedImage.order = targetImage.order;
+        targetImage.order = draggedOrder;
+    }
+
+    dragStartIndex.value = null;
+    dragOverIndex.value = null;
+};
+
+
+// --- CONTEXT MENU ---
+const contextMenu = reactive({ visible: false, x: 0, y: 0, targetId: null });
+
+const openContextMenu = (event, imageId) => {
+  contextMenu.targetId = imageId;
+  contextMenu.x = event.clientX;
+  contextMenu.y = event.clientY;
+  contextMenu.visible = true;
+  window.addEventListener('click', closeContextMenu, { once: true });
+};
+
+const closeContextMenu = () => { contextMenu.visible = false; };
+
+
+// --- BROWSER DETECTION ---
+const isSafari = ref(/^((?!chrome|android).)*safari/i.test(navigator.userAgent));
+
+// --- TIMELINE & ANIMATION BLOCK LOGIC ---
+const blocksByRow = computed(() => {
+    if (!selectedImage.value) return [[], [], []];
+    const rows = [[], [], []];
+    const sortedBlocks = [...selectedImage.value.animationBlocks].sort((a, b) => a.startTime - b.startTime);
+    
+    for (const block of sortedBlocks) {
+        let placed = false;
+        for (let i = 0; i < 3; i++) {
+            const hasOverlap = rows[i].some(existingBlock => 
+                (block.startTime < existingBlock.startTime + existingBlock.duration) &&
+                (block.startTime + block.duration > existingBlock.startTime)
+            );
+            if (!hasOverlap) {
+                rows[i].push(block);
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) {
+            rows[0].push(block);
+        }
+    }
+    return rows;
+});
+
+
+const addAnimationBlock = (type) => {
+  if (!selectedImage.value) return;
+  
+  const isLoopingByDefault = ['pan', 'zoom', 'rotate', 'opacity'].includes(type);
+
+  const defaultParams = {
+    pan: { direction: 'right', distance: 100, autoReverse: true },
+    zoom: { startScale: 1, endScale: 1.5, autoReverse: true },
+    rotate: { degrees: 360, autoReverse: false, useCenter: true, rotateX: 0, rotateY: 0 },
+    opacity: { startOpacity: 1, endOpacity: 0, autoReverse: true },
+  };
+
+  const newBlock = {
+    id: `anim_${Date.now()}`, 
+    type, 
+    startTime: 0, 
+    duration: 2, 
+    loop: isLoopingByDefault,
+    parameters: defaultParams[type],
+  };
+  selectedImage.value.animationBlocks.push(newBlock);
+  selectBlock(newBlock);
+};
+
+const deleteAnimationBlock = (id) => {
+  if (!selectedImage.value) return;
+  selectedImage.value.animationBlocks = selectedImage.value.animationBlocks.filter(b => b.id !== id);
+  if (selectedBlock.value && selectedBlock.value.id === id) {
+      selectedBlock.value = null;
+  }
+};
+
+const selectBlock = (block) => {
+    selectedBlock.value = block;
+};
+
+// --- TIMELINE DRAG & DROP ---
+const onBlockDragStart = (event, block) => {
+    draggedBlockInfo = { blockId: block.id };
+    event.dataTransfer.setData('text/plain', block.id);
+    event.dataTransfer.effectAllowed = 'move';
+};
+
+const onBlockDrop = (event) => {
+    if (!draggedBlockInfo || !selectedImage.value || !timelineWrapperRef.value) return;
+    
+    const draggedBlock = selectedImage.value.animationBlocks.find(b => b.id === draggedBlockInfo.blockId);
+    if (!draggedBlock) return;
+
+    const timelineRect = timelineWrapperRef.value.getBoundingClientRect();
+    const dropX = event.clientX - timelineRect.left;
+    const rawTime = (dropX / timelineRect.width) * timelineDuration.value;
+    
+    const snappedTime = Math.max(0, Math.round(rawTime * 10) / 10);
+
+    let placed = false;
+    for (let i = 0; i < 3; i++) {
+        const rowToCheck = blocksByRow.value[i];
+        const hasOverlap = rowToCheck.some(existingBlock => 
+            (existingBlock.id !== draggedBlock.id) &&
+            (snappedTime < existingBlock.startTime + existingBlock.duration) &&
+            (snappedTime + draggedBlock.duration > existingBlock.startTime)
+        );
+
+        if (!hasOverlap) {
+            draggedBlock.startTime = snappedTime;
+            placed = true;
+            break; 
+        }
+    }
+
+    if (!placed) {
+        overlapError.value = true;
+        setTimeout(() => overlapError.value = false, 2000);
+    }
+    
+    draggedBlockInfo = null;
+};
+
+</script>
+
+<style>
+/* --- GLOBAL STYLES --- */
+:root {
+  --color-background: #1a1a1a;
+  --color-surface: #2a2a2e;
+  --color-surface-light: #3c3c42;
+  --color-primary: #777777;
+  --color-text: #eaeaea;
+  --color-border: #555;
+  --panel-gap: 10px;
+  /* Desaturated colors w/ 50% Alpha */
+  --color-pan: rgba(88, 121, 166, 0.5);
+  --color-zoom: rgba(166, 82, 110, 0.5);
+  --color-rotate: rgba(166, 106, 84, 0.5);
+  --color-opacity: rgba(122, 88, 166, 0.5);
+  --color-delete: #674445;
+}
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  overflow: hidden;
+}
+* {
+  box-sizing: border-box;
+}
+
+/* --- LAYOUT --- */
+#app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+.top-section { display: flex; flex-grow: 1; gap: var(--panel-gap); padding: var(--panel-gap); height: 60%; }
+.bottom-section { height: 40%; padding: 0 var(--panel-gap) var(--panel-gap); border-top: 1px solid var(--color-border); display: flex; flex-direction: column;}
+.panel { background-color: var(--color-surface); border-radius: 8px; padding: 15px; overflow: auto; }
+.top-section > .panel:nth-child(3) { overflow: hidden; } /* Fix for preview panel slider */
+.placeholder-text, .placeholder-timeline { display: flex; align-items: center; justify-content: center; height: 100%; color: #888; font-style: italic; }
+
+/* --- FORMS & BUTTONS --- */
+button, .button-like {
+  background-color: var(--color-primary); color: white; border: none; padding: 10px 15px;
+  border-radius: 5px; cursor: pointer; font-size: 14px; transition: background-color 0.2s;
+  width: 100%; margin-bottom: 10px; text-align: center; display: block;
+}
+button:hover, .button-like:hover { background-color: #666666; }
+button:disabled { background-color: #555; cursor: not-allowed; opacity: 0.7; }
+input, select {
+  width: 100%; padding: 8px; background-color: var(--color-surface-light);
+  border: 1px solid var(--color-border); color: var(--color-text);
+  border-radius: 4px; margin-bottom: 10px;
+}
+.control-group { margin-bottom: 20px; }
+.control-group h3 { margin-top: 0; border-bottom: 1px solid var(--color-border); padding-bottom: 5px; font-size: 16px; }
+.help-text, label { font-size: 12px; color: #999; margin-bottom: 5px; display: block; }
+
+/* --- MIDDLE PANEL (THUMBNAILS) --- */
+.thumbnail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.thumbnail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px;
+  border: 2px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  background-color: var(--color-surface-light);
+  min-width: 0;
+}
+.thumbnail-item.selected { border-color: var(--color-primary); }
+.thumbnail-item.drag-over { border-color: var(--color-primary); border-style: dashed; }
+.thumbnail-image-container {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background-color: var(--color-background);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.thumbnail-image-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+.thumbnail-item span {
+  font-size: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  text-align: center;
+}
+
+/* --- CONTEXT MENU --- */
+.context-menu {
+  position: fixed; background-color: #444; border: 1px solid var(--color-border);
+  border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.5); z-index: 1000; width: 150px;
+}
+.context-item { padding: 10px 15px; cursor: pointer; }
+.context-item:hover { background-color: var(--color-primary); }
+
+/* --- RIGHT PANEL (PREVIEW) --- */
+.safari-warning {
+  position: absolute; top: 10px; left: 10px; right: 10px; background-color: #ffc107;
+  color: #333; padding: 10px; border-radius: 5px; font-size: 14px; text-align: center; z-index: 10;
+}
+.live-preview { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+/* --- BOTTOM PANEL (TIMELINE) --- */
+.timeline-container { padding-top: 15px; display: flex; flex-direction: column; height: 100%; }
+.timeline-controls, .edit-form { padding: 10px; background-color: var(--color-surface); border-radius: 8px; margin-bottom: 15px; }
+.timeline-controls h4, .edit-form h4 { margin: 0 0 10px; }
+.timeline-controls .button-group {
+  display: flex;
+  gap: 10px;
+}
+.timeline-controls .button-group button {
+  width: auto;
+  flex-grow: 1;
+  margin-bottom: 0;
+}
+.timeline-rows-wrapper { flex-grow: 1; position: relative; }
+.timeline-row { position: relative; height: 33.33%; border-top: 1px solid var(--color-border); }
+.timeline-row:first-child { border-top: none; }
+.time-ruler {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+.ruler-line { position: absolute; top: 0; bottom: 0; width: 1px; }
+.ruler-line.second { background-color: #333; }
+.ruler-line.tenth { background-color: #222; }
+.ruler-label {
+    position: absolute;
+    top: -15px;
+    font-size: 10px;
+    color: #999;
+    transform: translateX(-50%);
+}
+.animation-block {
+  position: absolute; height: calc(100% - 2px); top: 1px; border-radius: 4px; color: white;
+  display: flex; align-items: center; justify-content: flex-start;
+  font-size: 12px;
+  cursor: pointer; overflow: hidden; white-space: nowrap; border: 1px solid rgba(255,255,255,0.3);
+  z-index: 2;
+  padding: 1px;
+}
+.block-thumbnail {
+    height: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 3px;
+    margin-right: 5px;
+    flex-shrink: 0;
+}
+.animation-block.selected { border-width: 2px; border-color: white; z-index: 10; }
+.animation-block.pan { background-color: var(--color-pan); }
+.animation-block.zoom { background-color: var(--color-zoom); }
+.animation-block.rotate { background-color: var(--color-rotate); }
+.animation-block.opacity { background-color: var(--color-opacity); }
+
+/* --- EDIT FORM --- */
+.edit-form .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
+.edit-form .form-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; }
+.edit-form .checkbox-group { display: flex; flex-wrap: wrap; gap: 15px; }
+.edit-form .delete-btn { background-color: var(--color-delete); width: auto; margin-bottom: 0; }
+.loop-toggle { font-size: 14px; display: flex; align-items: center; gap: 5px; color: var(--color-text); cursor: pointer;}
+.loop-toggle input { width: auto; margin-bottom: 0; }
+
+.error-message {
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  background-color: var(--color-delete); color: white; padding: 10px 20px;
+  border-radius: 5px; z-index: 100;
+}
+</style>
