@@ -37,6 +37,7 @@
         display: flex;
         flex-direction: column;
         height: 100vh;
+        position: relative;
       }
       .top-section { display: flex; flex-grow: 1; gap: var(--panel-gap); padding: var(--panel-gap); height: 60%; }
       .bottom-section { height: 40%; padding: 0 var(--panel-gap) var(--panel-gap); border-top: 1px solid var(--color-border); display: flex; flex-direction: column;}
@@ -190,6 +191,20 @@
         background-color: var(--color-delete); color: white; padding: 10px 20px;
         border-radius: 5px; z-index: 100;
       }
+       .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 20px;
+        z-index: 2000;
+      }
     </style>
 </head>
 <body>
@@ -205,7 +220,8 @@
                     <input type="file" @change="handleProjectLoad" accept=".json" style="display: none;">
                   </label>
                   <button @click="exportSVG">Export SVG</button>
-                  <button disabled title="Coming soon—MP4 requires server encoding.">Export MP4</button>
+                  <button @click="exportVideo('mp4')" :disabled="isRendering">Export MP4</button>
+                  <button @click="exportVideo('webp')" :disabled="isRendering">Export WebP</button>
                 </div>
         
                 <div class="control-group">
@@ -336,12 +352,17 @@
                 Select an image to view or add animations.
               </div>
             </div>
+            <div v-if="isRendering" class="loading-overlay">
+                Rendering...
+            </div>
         </div>
     </div>
     
     <script src="https://unpkg.com/petite-vue"></script>
     <script>
-      const { createApp } = PetiteVue;
+      const { createApp, reactive, computed, watch, onMounted, nextTick } = PetiteVue;
+
+      const BACKEND_URL = 'https://swa-exporter.up.railway.app'; 
 
       function App() {
         return {
@@ -355,6 +376,7 @@
           selectedBlock: null,
           timelineDuration: 10,
           overlapError: false,
+          isRendering: false,
           draggedBlockInfo: null,
           dragStartIndex: null,
           dragOverIndex: null,
@@ -392,6 +414,87 @@
             return { seconds, tenths };
           },
 
+          // --- SVG Generation ---
+          get aSvgContent() {
+            const { projectWidth, projectHeight, images } = this.project;
+            const imagesToRender = [...images].sort((a, b) => b.order - a.order);
+            const canvasCenterX = projectWidth / 2;
+            const canvasCenterY = projectHeight / 2;
+
+            const imageElements = imagesToRender.map(image => {
+                const animationElements = image.animationBlocks.map(block => {
+                    const repeatCount = block.loop ? 'indefinite' : '1';
+                    
+                    switch (block.type) {
+                        case 'pan': {
+                            const { direction, distance, autoReverse } = block.parameters;
+                            const pans = { right: `${distance} 0`, left: `${-distance} 0`, up: `0 ${-distance}`, down: `0 ${distance}` };
+                            const to = pans[direction];
+                            if (autoReverse) {
+                                return `<animateTransform attributeName="transform" type="translate" values="0 0; ${to}; 0 0" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
+                            }
+                            return `<animateTransform attributeName="transform" type="translate" from="0 0" to="${to}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
+                        }
+                        case 'zoom': {
+                            const { startScale, endScale, autoReverse } = block.parameters;
+                            if (autoReverse) {
+                                return `<animateTransform attributeName="transform" type="scale" values="${startScale}; ${endScale}; ${startScale}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
+                            }
+                            return `<animateTransform attributeName="transform" type="scale" from="${startScale}" to="${endScale}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
+                        }
+                        case 'rotate': {
+                            const { degrees, autoReverse, useCenter, rotateX, rotateY } = block.parameters;
+                            const cx = useCenter ? canvasCenterX : rotateX;
+                            const cy = useCenter ? canvasCenterY : rotateY;
+                            const midDegrees = degrees / 2;
+
+                            if (autoReverse) {
+                                return `<animateTransform attributeName="transform" type="rotate" values="0 ${cx} ${cy}; ${degrees} ${cx} ${cy}; 0 ${cx} ${cy}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" />`;
+                            }
+                            return `<animateTransform attributeName="transform" type="rotate" values="0 ${cx} ${cy}; ${midDegrees} ${cx} ${cy}; ${degrees} ${cx} ${cy}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" />`;
+                        }
+                        case 'opacity': {
+                            const { startOpacity, endOpacity, autoReverse } = block.parameters;
+                            if(autoReverse) {
+                                return `<animate attributeName="opacity" values="${startOpacity}; ${endOpacity}; ${startOpacity}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
+                            }
+                            return `<animate attributeName="opacity" from="${startOpacity}" to="${endOpacity}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
+                        }
+                    }
+                }).join('\n          ');
+                
+                return `
+                <g>
+                    <image href="${image.base64Data}" width="${projectWidth}" height="${projectHeight}" x="0" y="0" />
+                    ${animationElements}
+                </g>`;
+            }).join('');
+            
+            return `<svg 
+                width="${projectWidth}" 
+                height="${projectHeight}" 
+                xmlns="http://www.w3.org/2000/svg"
+                >
+                <defs>
+                    <clipPath id="canvas-clip">
+                        <rect x="0" y="0" width="${projectWidth}" height="${projectHeight}" />
+                    </clipPath>
+                </defs>
+                <g clip-path="url(#canvas-clip)">
+                    ${imageElements}
+                </g>
+            </svg>`;
+          },
+
+          generateLivePreview() {
+            const svgContent = this.aSvgContent;
+            const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+            if (this.livePreviewSvgUrl) {
+              URL.revokeObjectURL(this.livePreviewSvgUrl);
+            }
+            this.livePreviewSvgUrl = URL.createObjectURL(blob);
+          },
+
           // --- METHODS ---
           getBlocksForRow(rowIndex) {
             if (!this.selectedImage) return [];
@@ -417,84 +520,6 @@
                 }
             }
             return rows[rowIndex];
-          },
-
-          generateLivePreview() {
-            const { projectWidth, projectHeight, images } = this.project;
-            const imagesToRender = [...images].sort((a, b) => b.order - a.order);
-            const canvasCenterX = projectWidth / 2;
-            const canvasCenterY = projectHeight / 2;
-
-            const imageElements = imagesToRender.map(image => {
-                const animationElements = image.animationBlocks.map(block => {
-                const repeatCount = block.loop ? 'indefinite' : '1';
-                
-                switch (block.type) {
-                    case 'pan': {
-                    const { direction, distance, autoReverse } = block.parameters;
-                    const pans = { right: `${distance} 0`, left: `${-distance} 0`, up: `0 ${-distance}`, down: `0 ${distance}` };
-                    const to = pans[direction];
-                    if (autoReverse) {
-                        return `<animateTransform attributeName="transform" type="translate" values="0 0; ${to}; 0 0" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                    }
-                    return `<animateTransform attributeName="transform" type="translate" from="0 0" to="${to}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                    }
-                    case 'zoom': {
-                    const { startScale, endScale, autoReverse } = block.parameters;
-                    if (autoReverse) {
-                        return `<animateTransform attributeName="transform" type="scale" values="${startScale}; ${endScale}; ${startScale}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                    }
-                    return `<animateTransform attributeName="transform" type="scale" from="${startScale}" to="${endScale}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                    }
-                    case 'rotate': {
-                        const { degrees, autoReverse, useCenter, rotateX, rotateY } = block.parameters;
-                        const cx = useCenter ? canvasCenterX : rotateX;
-                        const cy = useCenter ? canvasCenterY : rotateY;
-                        const midDegrees = degrees / 2;
-
-                        if (autoReverse) {
-                            return `<animateTransform attributeName="transform" type="rotate" values="0 ${cx} ${cy}; ${degrees} ${cx} ${cy}; 0 ${cx} ${cy}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" />`;
-                        }
-                        return `<animateTransform attributeName="transform" type="rotate" values="0 ${cx} ${cy}; ${midDegrees} ${cx} ${cy}; ${degrees} ${cx} ${cy}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" />`;
-                    }
-                    case 'opacity': {
-                        const { startOpacity, endOpacity, autoReverse } = block.parameters;
-                        if(autoReverse) {
-                            return `<animate attributeName="opacity" values="${startOpacity}; ${endOpacity}; ${startOpacity}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
-                        }
-                        return `<animate attributeName="opacity" from="${startOpacity}" to="${endOpacity}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
-                    }
-                }
-                }).join('\n          ');
-
-                return `
-                <g>
-                <image 
-                    href="${image.base64Data}" 
-                    x="0" y="0" 
-                    width="${projectWidth}" 
-                    height="${projectHeight}" 
-                    preserveAspectRatio="xMidYMid slice"
-                />
-                ${animationElements}
-                </g>`;
-            }).join('');
-            
-            const svgContent = `<svg 
-                width="${projectWidth}" 
-                height="${projectHeight}" 
-                viewBox="0 0 ${projectWidth} ${projectHeight}" 
-                xmlns="http://www.w3.org/2000/svg"
-                >
-                <style>g { transform-box: fill-box; transform-origin: center; }</style>
-                ${imageElements}
-            </svg>`;
-            
-            const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-            if (this.livePreviewSvgUrl) {
-              URL.revokeObjectURL(this.livePreviewSvgUrl);
-            }
-            this.livePreviewSvgUrl = URL.createObjectURL(blob);
           },
 
           handleImageUpload(e) {
@@ -573,14 +598,55 @@
           },
 
           exportSVG() {
-            const svgData = this.livePreviewSvgUrl; // Use the blob url
+            const svgData = this.aSvgContent;
+            const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.style.display = 'none';
-            a.href = svgData;
+            a.href = url;
             a.download = 'animated-scene.svg';
             document.body.appendChild(a);
             a.click();
+            URL.revokeObjectURL(url);
             document.body.removeChild(a);
+          },
+
+          async exportVideo(format) {
+            if (!BACKEND_URL || BACKEND_URL === 'PASTE_YOUR_RAILWAY_URL_HERE') {
+                alert('Backend URL is not configured. Please edit the index.html file.');
+                return;
+            }
+
+            this.isRendering = true;
+            try {
+                const svgData = this.aSvgContent;
+                const response = await fetch(`${BACKEND_URL}/api/render-${format}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ svg: svgData })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server responded with status: ${response.status}`);
+                }
+
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `animation.${format}`;
+                document.body.appendChild(a);
+                a.click();
+                URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+            } catch (error) {
+                console.error('Export failed:', error);
+                alert(`Export failed. See console for details.`);
+            } finally {
+                this.isRendering = false;
+            }
           },
 
           onDragStart(index) {
@@ -678,11 +744,9 @@
               const snappedTime = Math.max(0, Math.round(rawTime * 10) / 10);
 
               let placed = false;
-              const allBlocks = this.selectedImage.animationBlocks;
-
               for (let i = 0; i < 3; i++) {
-                  const blocksInThisRow = this.getBlocksForRow(i);
-                  const hasOverlap = blocksInThisRow.some(existingBlock => 
+                  const rowToCheck = this.getBlocksForRow(i);
+                  const hasOverlap = rowToCheck.some(existingBlock => 
                       (existingBlock.id !== draggedBlock.id) &&
                       (snappedTime < existingBlock.startTime + existingBlock.duration) &&
                       (snappedTime + draggedBlock.duration > existingBlock.startTime)
