@@ -1,19 +1,26 @@
-FROM node:18-alpine
-
-WORKDIR /app
+# Use a Node.js base image
+FROM node:18-slim
 
 # Install system dependencies
-RUN apk add --no-cache ffmpeg
+RUN apt-get update && apt-get install -y ffmpeg
 
-# Copy package files first (for caching)
-COPY package*.json ./
+# Set the working directory inside the container
+WORKDIR /app
 
-# Install Node dependencies
+# Copy only the package files for the backend to leverage caching
+COPY backend/package*.json ./
+
+# Install backend dependencies
 RUN npm install --production
 
-# Copy all files
-COPY . .
+# Copy the backend source code into a /backend directory inside the container
+COPY backend/ ./backend
 
+# Copy the frontend index.html from the root of the repo into the container
+COPY index.html ./
+
+# Expose the port the app will run on
 EXPOSE 8080
 
-CMD ["node", "index.js"]
+# The command to run when the container starts
+CMD ["node", "backend/index.js"]
