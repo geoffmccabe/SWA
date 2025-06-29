@@ -1,14 +1,17 @@
 FROM nginx:alpine
 
-# Copy application and configuration files
+# Completely disable Nginx's own entrypoint scripts to prevent conflicts
+RUN rm -rf /docker-entrypoint.d
+
+# Copy application and our custom configuration files
 COPY index.html /usr/share/nginx/html/
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# Create health check endpoint file
+# Create a simple file for the health check endpoint
 RUN echo "OK" > /usr/share/nginx/html/health
 
-# Expose port (Railway uses 8080 by default)
+# Expose the port Railway expects
 EXPOSE 8080
 
-# Start Nginx in foreground with debug logging
-CMD ["nginx", "-g", "daemon off;", "-c", "/etc/nginx/nginx.conf"]
+# Start Nginx directly using our custom config and force it to stay in the foreground
+CMD ["nginx", "-c", "/etc/nginx/nginx.conf", "-g", "daemon off;"]
