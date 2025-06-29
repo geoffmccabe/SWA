@@ -5,77 +5,59 @@ const path = require('path');
 const crypto = require('crypto');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 const TEMP_DIR = path.join(__dirname, 'tmp');
 
-// Create a temporary directory if it doesn't exist
+// Create temp directory if needed
 if (!fs.existsSync(TEMP_DIR)) {
   fs.mkdirSync(TEMP_DIR);
 }
 
-// --- MIDDLEWARE ---
-// Serve static files like CSS or other JS files if you add them later
+// Middleware
 app.use(express.static(path.join(__dirname, '..')));
-// Use a large limit to accommodate potentially large SVG strings in API requests
 app.use(express.json({ limit: '10mb' }));
 
-
-// --- API ROUTES ---
+// API Routes
 const render = (req, res, format) => {
   const svgData = req.body.svg;
-  if (!svgData) {
-    return res.status(400).send('SVG data is required.');
-  }
+  if (!svgData) return res.status(400).send('SVG data required');
 
   const uniqueId = crypto.randomUUID();
   const inputPath = path.join(TEMP_DIR, `${uniqueId}.svg`);
   const outputPath = path.join(TEMP_DIR, `${uniqueId}.${format}`);
   
   fs.writeFile(inputPath, svgData, (err) => {
-    if (err) {
-      console.error('Error writing temp SVG file:', err);
-      return res.status(500).send('Failed to write temporary file.');
-    }
+    if (err) return res.status(500).send('File write error');
 
-    const command = format === 'mp4'
+    const ffmpegCmd = format === 'mp4'
       ? `ffmpeg -i ${inputPath} -c:v libx264 -pix_fmt yuv420p -y ${outputPath}`
       : `ffmpeg -i ${inputPath} -y ${outputPath}`;
 
-    exec(command, (execErr) => {
+    exec(ffmpegCmd, (execErr) => {
       if (execErr) {
-        console.error(`Error executing FFmpeg for ${format}:`, execErr);
         fs.unlink(inputPath, () => {});
-        return res.status(500).send(`Failed to render ${format}.`);
+        return res.status(500).send(`FFmpeg error: ${execErr.message}`);
       }
 
-      res.download(outputPath, `animation.${format}`, (downloadErr) => {
-        if (downloadErr) {
-          console.error(`Error sending ${format} file:`, downloadErr);
-        }
+      res.download(outputPath, `animation.${format}`, (dlErr) => {
         fs.unlink(inputPath, () => {});
         fs.unlink(outputPath, () => {});
+        if (dlErr) console.error('Download error:', dlErr);
       });
     });
   });
 };
 
-app.post('/api/render-mp4', (req, res) => {
-  render(req, res, 'mp4');
-});
+app.post('/api/render-mp4', (req, res) => render(req, res, 'mp4'));
+app.post('/api/render-webp', (req, res) => render(req, res, 'webp'));
 
-app.post('/api/render-webp', (req, res) => {
-  render(req, res, 'webp');
-});
-
-
-// --- FRONTEND HANDLER ---
-// This will serve the index.html file for any GET request that doesn't match an API route.
+// Frontend Route (MUST BE LAST)
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'index.html'));
+  res.sendFile(path.join(__dirname, '../index.html'));
 });
 
-
-// --- SERVER STARTUP ---
+// Start Server
 app.listen(PORT, () => {
-  console.log(`Renderer and Frontend server listening on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Frontend available at /index.html`);
 });
