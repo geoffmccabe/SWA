@@ -42,13 +42,13 @@
       .top-section { display: flex; flex-grow: 1; gap: var(--panel-gap); padding: var(--panel-gap); height: 60%; }
       .bottom-section { 
         height: 40%; 
-        padding: 10px var(--panel-gap) var(--panel-gap); 
-        /* border-top removed */
+        padding: 20px var(--panel-gap) var(--panel-gap); /* Added top padding for timeline gap */
         display: flex; 
         flex-direction: column;
+        position: relative;
       }
       .panel { background-color: var(--color-surface); border-radius: 8px; padding: 15px; overflow: auto; }
-      .top-section > .panel:nth-child(1) { overflow: hidden; } /* Remove slider on left panel */
+      .top-section > .panel:nth-child(1) { overflow: hidden; }
       .top-section > .panel:nth-child(3) { overflow: hidden; }
       .placeholder-text, .placeholder-timeline { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #888; font-style: italic; text-align: center; }
       .placeholder-text h2 { margin: 0 0 10px 0; color: #aaa; font-style: normal; }
@@ -66,8 +66,9 @@
         border: 1px solid var(--color-border); color: var(--color-text);
         border-radius: 4px; margin-bottom: 10px;
       }
-      .control-group { margin-bottom: 20px; }
-      .control-group h3 { margin-top: 0; border-bottom: 1px solid var(--color-border); padding-bottom: 5px; font-size: 16px; text-align: left; }
+      .control-group { padding-top: 15px; border-top: 1px solid var(--color-border); }
+      .control-group:first-child { border-top: none; padding-top: 0;}
+      .control-group h3 { margin-top: 0; margin-bottom: 15px; font-size: 16px; text-align: left; }
       .help-text, label { font-size: 12px; color: #999; margin-bottom: 5px; display: block; }
       .export-buttons { display: flex; gap: 5px; }
       .export-buttons button { width: 100%; margin-bottom: 0; }
@@ -141,8 +142,8 @@
       .live-preview { max-width: 100%; max-height: 100%; object-fit: contain; }
 
       /* --- BOTTOM PANEL (TIMELINE) --- */
-      .timeline-container { padding-top: 25px; display: flex; flex-direction: column; height: 100%; position: relative; }
-      .timeline-controls, .edit-form { padding: 10px; background-color: var(--color-surface); border-radius: 8px; margin-bottom: 15px; position: absolute; top: 0; left: 0; width: 100%; }
+      .timeline-container { display: flex; flex-direction: column; height: 100%; }
+      .timeline-controls, .edit-form { padding: 10px; background-color: var(--color-surface); border-radius: 8px; margin-bottom: 15px; }
       .timeline-controls h4, .edit-form h4 { margin: 0 0 10px; }
       .timeline-controls .button-group {
         display: flex;
@@ -153,7 +154,7 @@
         flex-grow: 1;
         margin-bottom: 0;
       }
-      .timeline-rows-wrapper { flex-grow: 1; position: relative; margin-top: 60px; /* Space for controls */ }
+      .timeline-rows-wrapper { flex-grow: 1; position: relative; }
       .timeline-row { position: relative; height: 33.33%; border-top: 1px solid var(--color-border); }
       .timeline-row:first-child { border-top: none; }
       .time-ruler {
@@ -238,7 +239,9 @@
                   <label class="button-like">Load Project
                     <input type="file" @change="handleProjectLoad" accept=".json" style="display: none;">
                   </label>
-                  
+                </div>
+
+                <div class="control-group">
                   <h3>Export Animation:</h3>
                   <div class="export-buttons">
                     <button @click="exportSVG">SVG</button>
@@ -280,10 +283,10 @@
                       :draggable="true"
                       @click="selectImage(image.id)"
                       @contextmenu.prevent="openContextMenu($event, image.id)"
-                      @dragstart="onDragStart(index)"
-                      @dragover.prevent="onDragOver(index)"
+                      @dragstart="onDragStart(image.id)"
+                      @dragover.prevent="onDragOver(image.id)"
                       @dragleave="onDragLeave"
-                      @drop="onDrop(index)"
+                      @drop="onDrop(image.id)"
                     >
                       <div class="thumbnail-image-container">
                           <img :src="image.base64Data" alt="thumbnail">
@@ -315,8 +318,8 @@
         
             <div class="bottom-section">
               <div class="timeline-container">
-                  <div v-if="selectedImage">
-                    <div v-if="selectedBlock" class="edit-form">
+                  <div class="timeline-controls-wrapper">
+                    <div v-if="selectedImage && selectedBlock" class="edit-form">
                         <h4>Edit {{ selectedBlock.type }} Animation</h4>
                         <div class="form-grid" @input="updatePreview">
                             <div><label>Start Time (s)</label><input type="number" v-model.number="selectedBlock.startTime" min="0" step="0.1"></div>
@@ -356,21 +359,12 @@
                     <div v-else class="timeline-controls">
                         <h4>Add Animation Block</h4>
                         <div class="button-group">
-                          <button @click="addAnimationBlock('pan')">Pan</button>
-                          <button @click="addAnimationBlock('zoom')">Zoom</button>
-                          <button @click="addAnimationBlock('rotate')">Rotate</button>
-                          <button @click="addAnimationBlock('opacity')">Opacity</button>
+                          <button @click="addAnimationBlock('pan')" :disabled="!selectedImage">Pan</button>
+                          <button @click="addAnimationBlock('zoom')" :disabled="!selectedImage">Zoom</button>
+                          <button @click="addAnimationBlock('rotate')" :disabled="!selectedImage">Rotate</button>
+                          <button @click="addAnimationBlock('opacity')" :disabled="!selectedImage">Opacity</button>
                         </div>
                     </div>
-                  </div>
-                  <div v-else class="timeline-controls">
-                      <h4>Add Animation Block</h4>
-                      <div class="button-group">
-                        <button disabled>Pan</button>
-                        <button disabled>Zoom</button>
-                        <button disabled>Rotate</button>
-                        <button disabled>Opacity</button>
-                      </div>
                   </div>
                   
                   <div class="timeline-rows-wrapper" ref="timelineWrapper" @dragover.prevent @drop="onBlockDrop">
@@ -423,9 +417,8 @@
           timelineDuration: 10,
           overlapError: false,
           isRendering: false,
-          draggedBlockInfo: null,
-          dragStartIndex: null,
-          dragOverIndex: null,
+          draggedItemId: null,
+          dragOverItemId: null,
           contextMenu: { visible: false, x: 0, y: 0, targetId: null },
           livePreviewSvgUrl: '',
           timelineWrapper: null,
@@ -457,7 +450,6 @@
           // --- METHODS ---
           updatePreview() {
             const { projectWidth, projectHeight, images } = this.project;
-            
             if (images.length === 0) {
                 if(this.livePreviewSvgUrl) {
                     URL.revokeObjectURL(this.livePreviewSvgUrl);
@@ -511,15 +503,17 @@
             this.livePreviewSvgUrl = URL.createObjectURL(blob);
           },
           getSvgString() {
-              const { projectWidth, projectHeight, images } = this.project;
-              const imagesToRender = [...images].sort((a, b) => b.order - a.order);
-              const canvasCenterX = projectWidth / 2;
-              const canvasCenterY = projectHeight / 2;
-              const imageElements = imagesToRender.map(image => {
-                  const animationElements = image.animationBlocks.map(block => {
-                      const repeatCount = block.loop ? 'indefinite' : '1';
-                      switch (block.type) {
-                           case 'pan': {
+            // This is a simplified, non-reactive way to get the SVG content for exports
+            const { projectWidth, projectHeight, images } = this.project;
+            if (images.length === 0) return '';
+            const imagesToRender = [...images].sort((a, b) => b.order - a.order);
+            const canvasCenterX = projectWidth / 2;
+            const canvasCenterY = projectHeight / 2;
+            const imageElements = imagesToRender.map(image => {
+                const animationElements = image.animationBlocks.map(block => {
+                    const repeatCount = block.loop ? 'indefinite' : '1';
+                    switch (block.type) {
+                          case 'pan': {
                               const { direction, distance, autoReverse } = block.parameters;
                               const pans = { right: `${distance} 0`, left: `${-distance} 0`, up: `0 ${-distance}`, down: `0 ${distance}` };
                               const to = pans[direction];
@@ -544,11 +538,11 @@
                               if(autoReverse) return `<animate attributeName="opacity" values="${startOpacity}; ${endOpacity}; ${startOpacity}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
                               return `<animate attributeName="opacity" from="${startOpacity}" to="${endOpacity}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
                           }
-                      }
-                  }).join('');
-                  return `<g>${animationElements}<image href="${image.base64Data}" width="${projectWidth}" height="${projectHeight}" x="0" y="0" /></g>`;
-              }).join('');
-              return `<svg width="${projectWidth}" height="${projectHeight}" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${projectWidth}" height="${projectHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
+                    }
+                }).join('');
+                return `<g>${animationElements}<image href="${image.base64Data}" width="${projectWidth}" height="${projectHeight}" x="0" y="0" /></g>`;
+            }).join('');
+            return `<svg width="${projectWidth}" height="${projectHeight}" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${projectWidth}" height="${projectHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
           },
           getBlocksForRow(rowIndex) {
             if (!this.selectedImage) return [];
@@ -571,23 +565,20 @@
             const files = e.target.files;
             if (this.project.images.length + files.length > 10) { alert("Error: You can upload a maximum of 10 images."); return; }
             
-            const promises = [...files].map(file => {
+            const readPromises = [...files].map(file => {
                 return new Promise((resolve, reject) => {
                     const reader = new FileReader();
-                    reader.onload = (event) => {
-                        const newImage = {
-                            id: `img_${Date.now()}_${Math.random()}`, name: file.name, base64Data: event.target.result,
-                            order: this.project.images.length + promises.length, animationBlocks: [],
-                        };
-                        resolve(newImage);
-                    };
+                    reader.onload = (event) => resolve({
+                        id: `img_${Date.now()}_${Math.random()}`, name: file.name, base64Data: event.target.result,
+                        order: this.project.images.length + readPromises.length, animationBlocks: [],
+                    });
                     reader.onerror = (error) => reject(error);
                     reader.readAsDataURL(file);
                 });
             });
 
             try {
-                const newImages = await Promise.all(promises);
+                const newImages = await Promise.all(readPromises);
                 this.project.images.push(...newImages);
                 this.updatePreview();
             } catch (error) {
@@ -662,19 +653,24 @@
                 this.isRendering = false;
             }
           },
-          onDragStart(index) { this.dragStartIndex = index; },
-          onDragOver(index) { this.dragOverIndex = index; },
-          onDragLeave() { this.dragOverIndex = null; },
-          onDrop(dropIndex) {
-              if (this.dragStartIndex === null || this.dragStartIndex === dropIndex) { this.dragStartIndex = null; this.dragOverIndex = null; return; }
-              const draggedImage = this.sortedImages[this.dragStartIndex];
-              const targetImage = this.sortedImages[dropIndex];
+          onDragStart(id) { this.draggedItemId = id; },
+          onDragOver(id) { this.dragOverItemId = id; },
+          onDragLeave() { this.dragOverItemId = null; },
+          onDrop(targetId) {
+              if (!this.draggedItemId || this.draggedItemId === targetId) {
+                  this.draggedItemId = null;
+                  this.dragOverItemId = null;
+                  return;
+              }
+              const draggedImage = this.project.images.find(p => p.id === this.draggedItemId);
+              const targetImage = this.project.images.find(p => p.id === targetId);
               if (draggedImage && targetImage) {
                   const draggedOrder = draggedImage.order;
                   draggedImage.order = targetImage.order;
                   targetImage.order = draggedOrder;
               }
-              this.dragStartIndex = null; this.dragOverIndex = null;
+              this.draggedItemId = null;
+              this.dragOverItemId = null;
               this.updatePreview();
           },
           openContextMenu(event, imageId) {
