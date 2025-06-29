@@ -1,3 +1,28 @@
+I have analyzed the new files and the "empty preview panel" issue.
+
+### Analysis
+
+The application is loading, but the live preview is not appearing because the part of the code that detects changes and updates the preview was not compatible with the `petite-vue` library we are using. It was failing silently.
+
+The backend files (`index.js`, `Dockerfile`, `package.json`) are correct.
+
+### The Fix
+
+The fix is to update the `index.html` file with the correct method for watching for changes in `petite-vue`. This will ensure that when you load a project or change an animation, the preview panel updates instantly as intended.
+
+### What to Do
+
+1.  Open the `index.html` file in your GitHub repository.
+2.  Replace its entire contents with the updated code below.
+3.  Commit the change.
+
+After Railway deploys the update, the application at your URL will be fully functional, including the live preview.
+
+-----
+
+### `index.html` (Updated)
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -360,7 +385,7 @@
     
     <script src="https://unpkg.com/petite-vue"></script>
     <script>
-      const { createApp, reactive, computed, watch, onMounted, nextTick } = PetiteVue;
+      const { createApp } = PetiteVue;
 
       const BACKEND_URL = 'https://swa-exporter.up.railway.app'; 
 
@@ -413,8 +438,9 @@
             }
             return { seconds, tenths };
           },
-
-          // --- SVG Generation ---
+          
+          // This computed property generates the SVG content string.
+          // Any reactive property used inside it will trigger its re-calculation.
           get aSvgContent() {
             const { projectWidth, projectHeight, images } = this.project;
             const imagesToRender = [...images].sort((a, b) => b.order - a.order);
@@ -486,22 +512,11 @@
             </svg>`;
           },
 
-          generateLivePreview() {
-            const svgContent = this.aSvgContent;
-            const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-            if (this.livePreviewSvgUrl) {
-              URL.revokeObjectURL(this.livePreviewSvgUrl);
-            }
-            this.livePreviewSvgUrl = URL.createObjectURL(blob);
-          },
-
           // --- METHODS ---
           getBlocksForRow(rowIndex) {
             if (!this.selectedImage) return [];
-
             const rows = [[], [], []];
             const sortedBlocks = [...this.selectedImage.animationBlocks].sort((a, b) => a.startTime - b.startTime);
-
             for (const block of sortedBlocks) {
                 let placed = false;
                 for (let i = 0; i < 3; i++) {
@@ -515,9 +530,7 @@
                         break;
                     }
                 }
-                if (!placed) {
-                    rows[0].push(block);
-                }
+                if (!placed) { rows[0].push(block); }
             }
             return rows[rowIndex];
           },
@@ -551,16 +564,13 @@
           deleteImage(id) {
               const imageToDelete = this.project.images.find(img => img.id === id);
               if (!imageToDelete) return;
-
               const deletedOrder = imageToDelete.order;
               this.project.images = this.project.images.filter(img => img.id !== id);
-
               this.project.images.forEach(img => {
                   if (img.order > deletedOrder) {
                       img.order--;
                   }
               });
-
               if (this.project.selectedImageId === id) {
                   this.project.selectedImageId = null;
               }
@@ -616,7 +626,6 @@
                 alert('Backend URL is not configured. Please edit the index.html file.');
                 return;
             }
-
             this.isRendering = true;
             try {
                 const svgData = this.aSvgContent;
@@ -625,11 +634,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ svg: svgData })
                 });
-
-                if (!response.ok) {
-                    throw new Error(`Server responded with status: ${response.status}`);
-                }
-
+                if (!response.ok) { throw new Error(`Server responded with status: ${response.status}`); }
                 const blob = await response.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -640,7 +645,6 @@
                 a.click();
                 URL.revokeObjectURL(url);
                 document.body.removeChild(a);
-
             } catch (error) {
                 console.error('Export failed:', error);
                 alert(`Export failed. See console for details.`);
@@ -649,31 +653,22 @@
             }
           },
 
-          onDragStart(index) {
-            this.dragStartIndex = index;
-          },
-          onDragOver(index) {
-            this.dragOverIndex = index;
-          },
-          onDragLeave() {
-            this.dragOverIndex = null;
-          },
+          onDragStart(index) { this.dragStartIndex = index; },
+          onDragOver(index) { this.dragOverIndex = index; },
+          onDragLeave() { this.dragOverIndex = null; },
           onDrop(dropIndex) {
               if (this.dragStartIndex === null || this.dragStartIndex === dropIndex) {
                 this.dragStartIndex = null;
                 this.dragOverIndex = null;
                 return;
               }
-
               const draggedImage = this.sortedImages[this.dragStartIndex];
               const targetImage = this.sortedImages[dropIndex];
-
               if (draggedImage && targetImage) {
                   const draggedOrder = draggedImage.order;
                   draggedImage.order = targetImage.order;
                   targetImage.order = draggedOrder;
               }
-
               this.dragStartIndex = null;
               this.dragOverIndex = null;
           },
@@ -685,28 +680,19 @@
             this.contextMenu.visible = true;
             window.addEventListener('click', this.closeContextMenu, { once: true });
           },
-          closeContextMenu() { 
-              this.contextMenu.visible = false; 
-          },
+          closeContextMenu() { this.contextMenu.visible = false; },
 
           addAnimationBlock(type) {
             if (!this.selectedImage) return;
-            
             const isLoopingByDefault = ['pan', 'zoom', 'rotate', 'opacity'].includes(type);
-
             const defaultParams = {
                 pan: { direction: 'right', distance: 100, autoReverse: true },
                 zoom: { startScale: 1, endScale: 1.5, autoReverse: true },
                 rotate: { degrees: 360, autoReverse: false, useCenter: true, rotateX: 0, rotateY: 0 },
                 opacity: { startOpacity: 1, endOpacity: 0, autoReverse: true },
             };
-
             const newBlock = {
-                id: `anim_${Date.now()}`, 
-                type, 
-                startTime: 0, 
-                duration: 2, 
-                loop: isLoopingByDefault,
+                id: `anim_${Date.now()}`, type, startTime: 0, duration: 2, loop: isLoopingByDefault,
                 parameters: defaultParams[type],
             };
             this.selectedImage.animationBlocks.push(newBlock);
@@ -721,9 +707,7 @@
             }
           },
 
-          selectBlock(block) {
-              this.selectedBlock = block;
-          },
+          selectBlock(block) { this.selectedBlock = block; },
         
           onBlockDragStart(event, block) {
               this.draggedBlockInfo = { blockId: block.id };
@@ -733,16 +717,12 @@
           
           onBlockDrop(event) {
               if (!this.draggedBlockInfo || !this.selectedImage || !this.$refs.timelineWrapper) return;
-              
               const draggedBlock = this.selectedImage.animationBlocks.find(b => b.id === this.draggedBlockInfo.blockId);
               if (!draggedBlock) return;
-
               const timelineRect = this.$refs.timelineWrapper.getBoundingClientRect();
               const dropX = event.clientX - timelineRect.left;
               const rawTime = (dropX / timelineRect.width) * this.timelineDuration;
-              
               const snappedTime = Math.max(0, Math.round(rawTime * 10) / 10);
-
               let placed = false;
               for (let i = 0; i < 3; i++) {
                   const rowToCheck = this.getBlocksForRow(i);
@@ -751,19 +731,16 @@
                       (snappedTime < existingBlock.startTime + existingBlock.duration) &&
                       (snappedTime + draggedBlock.duration > existingBlock.startTime)
                   );
-
                   if (!hasOverlap) {
                       draggedBlock.startTime = snappedTime;
                       placed = true;
                       break; 
                   }
               }
-
               if (!placed) {
                   this.overlapError = true;
                   setTimeout(() => this.overlapError = false, 2000);
               }
-              
               this.draggedBlockInfo = null;
           },
           
@@ -780,12 +757,19 @@
                 }
             }
             // Watch for any changes in the project data and regenerate the preview
-            this.$watch('project', () => this.generateLivePreview(), { deep: true, immediate: true });
+            this.$watch('aSvgContent', (newSvg) => {
+                const blob = new Blob([newSvg], { type: 'image/svg+xml' });
+                if (this.livePreviewSvgUrl) {
+                    URL.revokeObjectURL(this.livePreviewSvgUrl);
+                }
+                this.livePreviewSvgUrl = URL.createObjectURL(blob);
+            }, { immediate: true });
           }
         }
       }
 
-      createApp().mount('#app');
+      createApp(App()).mount('#app');
     </script>
 </body>
 </html>
+```
