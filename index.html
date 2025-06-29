@@ -44,6 +44,7 @@
       .panel { background-color: var(--color-surface); border-radius: 8px; padding: 15px; overflow: auto; }
       .top-section > .panel:nth-child(3) { overflow: hidden; }
       .placeholder-text, .placeholder-timeline { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #888; font-style: italic; text-align: center; }
+      .placeholder-text h2 { margin: 0 0 10px 0; color: #aaa; font-style: normal; }
 
       /* --- FORMS & BUTTONS --- */
       button, .button-like {
@@ -280,64 +281,65 @@
                  <div v-if="isSafari" class="safari-warning">
                     Note: Live preview may not display correctly in Safari. Your export will still work.
                  </div>
-                 <object type="image/svg+xml" :data="livePreviewSvgUrl" class="live-preview"></object>
+                 <div v-if="project.images.length > 0">
+                    <object type="image/svg+xml" :data="livePreviewSvgUrl" class="live-preview"></object>
+                 </div>
+                 <div v-else class="placeholder-text">
+                    <h2>Preview Panel</h2>
+                    <p>Load Images to Activate</p>
+                 </div>
               </div>
             </div>
         
             <div class="bottom-section">
               <div class="timeline-container">
-                  <div v-if="selectedImage">
-                    <div v-if="selectedBlock" class="edit-form">
-                        <h4>Edit {{ selectedBlock.type }} Animation</h4>
-                        <div class="form-grid" @input="updatePreview">
-                            <div><label>Start Time (s)</label><input type="number" v-model.number="selectedBlock.startTime" min="0" step="0.1"></div>
-                            <div><label>Duration (s)</label><input type="number" v-model.number="selectedBlock.duration" min="0.1" step="0.1"></div>
-          
-                            <template v-if="selectedBlock.type === 'pan'">
-                                <div><label>Direction</label><select v-model="selectedBlock.parameters.direction"><option>left</option><option>right</option><option>up</option><option>down</option></select></div>
-                                <div><label>Distance (px)</label><input type="number" v-model="selectedBlock.parameters.distance"></div>
-                            </template>
-                            <template v-if="selectedBlock.type === 'zoom'">
-                                <div><label>Start Scale</label><input type="number" step="0.1" v-model="selectedBlock.parameters.startScale"></div>
-                                <div><label>End Scale</label><input type="number" step="0.1" v-model="selectedBlock.parameters.endScale"></div>
-                            </template>
-                            <template v-if="selectedBlock.type === 'rotate'">
-                                <div><label>Degrees</label><input type="number" v-model="selectedBlock.parameters.degrees"></div>
-                                <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateX" :disabled="selectedBlock.parameters.useCenter"></div>
-                                <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateY" :disabled="selectedBlock.parameters.useCenter"></div>
-                            </template>
-                            <template v-if="selectedBlock.type === 'opacity'">
-                                <div><label>Start Opacity</label><input type="number" step="0.1" min="0" max="1" v-model="selectedBlock.parameters.startOpacity"></div>
-                                <div><label>End Opacity</label><input type="number" step="0.1" min="0" max="1" v-model="selectedBlock.parameters.endOpacity"></div>
-                            </template>
-                        </div>
-                         <div class="form-footer">
-                             <div class="checkbox-group" @change="updatePreview">
-                                 <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.loop"> Loop</label>
-                                 <template v-if="selectedBlock.parameters.hasOwnProperty('autoReverse')">
-                                     <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.autoReverse"> Auto-Reverse</label>
-                                 </template>
-                                  <template v-if="selectedBlock.type === 'rotate'">
-                                     <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.useCenter"> Rotate Around Center</label>
-                                 </template>
-                             </div>
-                             <button class="delete-btn" @click="deleteAnimationBlock(selectedBlock.id)">Delete Block</button>
-                         </div>
-                    </div>
-                    <div v-else class="timeline-controls">
-                        <h4>Add Animation Block</h4>
-                        <div class="button-group">
-                          <button @click="addAnimationBlock('pan')">Pan</button>
-                          <button @click="addAnimationBlock('zoom')">Zoom</button>
-                          <button @click="addAnimationBlock('rotate')">Rotate</button>
-                          <button @click="addAnimationBlock('opacity')">Opacity</button>
-                        </div>
-                    </div>
+                  <div class="timeline-controls">
+                      <h4>Add Animation Block</h4>
+                      <div class="button-group">
+                        <button @click="addAnimationBlock('pan')" :disabled="!selectedImage">Pan</button>
+                        <button @click="addAnimationBlock('zoom')" :disabled="!selectedImage">Zoom</button>
+                        <button @click="addAnimationBlock('rotate')" :disabled="!selectedImage">Rotate</button>
+                        <button @click="addAnimationBlock('opacity')" :disabled="!selectedImage">Opacity</button>
+                      </div>
                   </div>
-                   <div v-else class="placeholder-timeline">
-                        Select an image to view or add animations.
-                    </div>
-
+                  <div v-if="selectedImage && selectedBlock" class="edit-form">
+                      <h4>Edit {{ selectedBlock.type }} Animation</h4>
+                      <div class="form-grid" @input="updatePreview">
+                          <div><label>Start Time (s)</label><input type="number" v-model.number="selectedBlock.startTime" min="0" step="0.1"></div>
+                          <div><label>Duration (s)</label><input type="number" v-model.number="selectedBlock.duration" min="0.1" step="0.1"></div>
+        
+                          <template v-if="selectedBlock.type === 'pan'">
+                              <div><label>Direction</label><select v-model="selectedBlock.parameters.direction"><option>left</option><option>right</option><option>up</option><option>down</option></select></div>
+                              <div><label>Distance (px)</label><input type="number" v-model="selectedBlock.parameters.distance"></div>
+                          </template>
+                          <template v-if="selectedBlock.type === 'zoom'">
+                              <div><label>Start Scale</label><input type="number" step="0.1" v-model="selectedBlock.parameters.startScale"></div>
+                              <div><label>End Scale</label><input type="number" step="0.1" v-model="selectedBlock.parameters.endScale"></div>
+                          </template>
+                          <template v-if="selectedBlock.type === 'rotate'">
+                              <div><label>Degrees</label><input type="number" v-model="selectedBlock.parameters.degrees"></div>
+                              <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateX" :disabled="selectedBlock.parameters.useCenter"></div>
+                              <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateY" :disabled="selectedBlock.parameters.useCenter"></div>
+                          </template>
+                          <template v-if="selectedBlock.type === 'opacity'">
+                              <div><label>Start Opacity</label><input type="number" step="0.1" min="0" max="1" v-model="selectedBlock.parameters.startOpacity"></div>
+                              <div><label>End Opacity</label><input type="number" step="0.1" min="0" max="1" v-model="selectedBlock.parameters.endOpacity"></div>
+                          </template>
+                      </div>
+                       <div class="form-footer">
+                           <div class="checkbox-group" @change="updatePreview">
+                               <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.loop"> Loop</label>
+                               <template v-if="selectedBlock.parameters.hasOwnProperty('autoReverse')">
+                                   <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.autoReverse"> Auto-Reverse</label>
+                               </template>
+                                <template v-if="selectedBlock.type === 'rotate'">
+                                   <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.useCenter"> Rotate Around Center</label>
+                               </template>
+                           </div>
+                           <button class="delete-btn" @click="deleteAnimationBlock(selectedBlock.id)">Delete Block</button>
+                       </div>
+                  </div>
+                  
                   <div class="timeline-rows-wrapper" ref="timelineWrapper" @dragover.prevent @drop="onBlockDrop">
                       <div class="time-ruler">
                           <div v-for="mark in timelineMarks.tenths" :key="'tenth-' + mark" class="ruler-line tenth" :style="{ left: mark + '%' }"></div>
@@ -422,7 +424,11 @@
           // --- METHODS ---
           updatePreview() {
             const { projectWidth, projectHeight, images } = this.project;
-            if (images.length === 0 && !this.livePreviewSvgUrl) return; // Don't generate if already empty
+            if (images.length === 0) {
+                if(this.livePreviewSvgUrl) URL.revokeObjectURL(this.livePreviewSvgUrl);
+                this.livePreviewSvgUrl = '';
+                return;
+            };
 
             const imagesToRender = [...images].sort((a, b) => b.order - a.order);
             const canvasCenterX = projectWidth / 2;
@@ -458,20 +464,56 @@
                             return `<animate attributeName="opacity" from="${startOpacity}" to="${endOpacity}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
                         }
                     }
-                }).join('\n          ');
-                
-                return `<g><image href="${image.base64Data}" width="${projectWidth}" height="${projectHeight}" x="0" y="0" />${animationElements}</g>`;
+                }).join('');
+                return `<g>${animationElements}<image href="${image.base64Data}" width="${projectWidth}" height="${projectHeight}" x="0" y="0" /></g>`;
             }).join('');
             
             const svgContent = `<svg width="${projectWidth}" height="${projectHeight}" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${projectWidth}" height="${projectHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
 
             const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-            if (this.livePreviewSvgUrl) {
-                URL.revokeObjectURL(this.livePreviewSvgUrl);
-            }
+            if (this.livePreviewSvgUrl) { URL.revokeObjectURL(this.livePreviewSvgUrl); }
             this.livePreviewSvgUrl = URL.createObjectURL(blob);
           },
-
+          getSvgString() {
+              const { projectWidth, projectHeight, images } = this.project;
+              const imagesToRender = [...images].sort((a, b) => b.order - a.order);
+              const canvasCenterX = projectWidth / 2;
+              const canvasCenterY = projectHeight / 2;
+              const imageElements = imagesToRender.map(image => {
+                  const animationElements = image.animationBlocks.map(block => {
+                      const repeatCount = block.loop ? 'indefinite' : '1';
+                      switch (block.type) {
+                           case 'pan': {
+                              const { direction, distance, autoReverse } = block.parameters;
+                              const pans = { right: `${distance} 0`, left: `${-distance} 0`, up: `0 ${-distance}`, down: `0 ${distance}` };
+                              const to = pans[direction];
+                              if (autoReverse) return `<animateTransform attributeName="transform" type="translate" values="0 0; ${to}; 0 0" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
+                              return `<animateTransform attributeName="transform" type="translate" from="0 0" to="${to}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
+                          }
+                          case 'zoom': {
+                              const { startScale, endScale, autoReverse } = block.parameters;
+                              if (autoReverse) return `<animateTransform attributeName="transform" type="scale" values="${startScale}; ${endScale}; ${startScale}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
+                              return `<animateTransform attributeName="transform" type="scale" from="${startScale}" to="${endScale}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
+                          }
+                          case 'rotate': {
+                              const { degrees, autoReverse, useCenter, rotateX, rotateY } = block.parameters;
+                              const cx = useCenter ? canvasCenterX : rotateX;
+                              const cy = useCenter ? canvasCenterY : rotateY;
+                              const midDegrees = degrees / 2;
+                              if (autoReverse) return `<animateTransform attributeName="transform" type="rotate" values="0 ${cx} ${cy}; ${degrees} ${cx} ${cy}; 0 ${cx} ${cy}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" />`;
+                              return `<animateTransform attributeName="transform" type="rotate" values="0 ${cx} ${cy}; ${midDegrees} ${cx} ${cy}; ${degrees} ${cx} ${cy}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" />`;
+                          }
+                          case 'opacity': {
+                              const { startOpacity, endOpacity, autoReverse } = block.parameters;
+                              if(autoReverse) return `<animate attributeName="opacity" values="${startOpacity}; ${endOpacity}; ${startOpacity}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
+                              return `<animate attributeName="opacity" from="${startOpacity}" to="${endOpacity}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
+                          }
+                      }
+                  }).join('');
+                  return `<g>${animationElements}<image href="${image.base64Data}" width="${projectWidth}" height="${projectHeight}" x="0" y="0" /></g>`;
+              }).join('');
+              return `<svg width="${projectWidth}" height="${projectHeight}" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${projectWidth}" height="${projectHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
+          },
           getBlocksForRow(rowIndex) {
             if (!this.selectedImage) return [];
             const rows = [[], [], []];
@@ -483,11 +525,7 @@
                         (block.startTime < existingBlock.startTime + existingBlock.duration) &&
                         (block.startTime + block.duration > existingBlock.startTime)
                     );
-                    if (!hasOverlap) {
-                        rows[i].push(block);
-                        placed = true;
-                        break;
-                    }
+                    if (!hasOverlap) { rows[i].push(block); placed = true; break; }
                 }
                 if (!placed) { rows[0].push(block); }
             }
@@ -495,43 +533,27 @@
           },
           handleImageUpload(e) {
             const files = e.target.files;
-            if (this.project.images.length + files.length > 10) {
-                alert("Error: You can upload a maximum of 10 images.");
-                return;
-            }
+            if (this.project.images.length + files.length > 10) { alert("Error: You can upload a maximum of 10 images."); return; }
             [...files].forEach(file => {
                 const reader = new FileReader();
                 reader.onload = (event) => {
-                this.project.images.push({
-                    id: `img_${Date.now()}_${Math.random()}`,
-                    name: file.name,
-                    base64Data: event.target.result,
-                    order: this.project.images.length,
-                    animationBlocks: [],
-                });
-                this.updatePreview();
+                    this.project.images.push({
+                        id: `img_${Date.now()}_${Math.random()}`, name: file.name, base64Data: event.target.result,
+                        order: this.project.images.length, animationBlocks: [],
+                    });
+                    this.updatePreview();
                 };
                 reader.readAsDataURL(file);
             });
           },
-          selectImage(id) {
-            this.project.selectedImageId = id;
-            this.selectedBlock = null;
-            this.updatePreview();
-          },
+          selectImage(id) { this.project.selectedImageId = id; this.selectedBlock = null; },
           deleteImage(id) {
               const imageToDelete = this.project.images.find(img => img.id === id);
               if (!imageToDelete) return;
               const deletedOrder = imageToDelete.order;
               this.project.images = this.project.images.filter(img => img.id !== id);
-              this.project.images.forEach(img => {
-                  if (img.order > deletedOrder) {
-                      img.order--;
-                  }
-              });
-              if (this.project.selectedImageId === id) {
-                  this.project.selectedImageId = null;
-              }
+              this.project.images.forEach(img => { if (img.order > deletedOrder) img.order--; });
+              if (this.project.selectedImageId === id) this.project.selectedImageId = null;
               this.updatePreview();
           },
           saveProject() {
@@ -551,54 +573,27 @@
             reader.onload = (event) => {
                 try {
                     const data = JSON.parse(event.target.result);
-                    if (data.projectWidth && data.projectHeight && Array.isArray(data.images)) {
-                        this.project = data;
-                        this.selectImage(data.selectedImageId || null);
-                        this.updatePreview();
-                    } else {
-                        alert('Invalid project file format.');
-                    }
-                } catch {
-                    alert('Error parsing project file.');
-                }
+                    this.project = data;
+                    this.selectImage(data.selectedImageId || null);
+                    this.updatePreview();
+                } catch { alert('Error parsing project file.'); }
             };
             reader.readAsText(file);
           },
           exportSVG() {
-            this.updatePreview(); // Ensure SVG is latest before export
-            const svgData = this.livePreviewSvgUrl;
+            const svgData = this.getSvgString();
+            const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = svgData;
-            a.download = 'animated-scene.svg';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            a.style.display = 'none'; a.href = url; a.download = 'animated-scene.svg';
+            document.body.appendChild(a); a.click();
+            URL.revokeObjectURL(url); document.body.removeChild(a);
           },
           async exportVideo(format) {
-            if (!BACKEND_URL || BACKEND_URL === 'PASTE_YOUR_RAILWAY_URL_HERE') {
-                alert('Backend URL is not configured. Please edit the index.html file.');
-                return;
-            }
+            if (!BACKEND_URL || BACKEND_URL === 'PASTE_YOUR_RAILWAY_URL_HERE') { alert('Backend URL is not configured.'); return; }
             this.isRendering = true;
-            this.updatePreview(); // Ensure SVG is latest before export
-            
-            // We need to generate the raw SVG string for the backend
-            const { projectWidth, projectHeight, images } = this.project;
-            const imagesToRender = [...images].sort((a, b) => b.order - a.order);
-            const canvasCenterX = projectWidth / 2;
-            const canvasCenterY = projectHeight / 2;
-            const imageElements = imagesToRender.map(image => {
-                const animationElements = image.animationBlocks.map(block => {
-                    const repeatCount = block.loop ? 'indefinite' : '1';
-                    // ... [omitted for brevity, same logic as updatePreview]
-                }).join('');
-                return `<g>...</g>`;
-            }).join('');
-            const svgData = `<svg>...${imageElements}</svg>`;
-
-
             try {
+                const svgData = this.getSvgString();
                 const response = await fetch(`${BACKEND_URL}/api/render-${format}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -608,13 +603,9 @@
                 const blob = await response.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                a.download = `animation.${format}`;
-                document.body.appendChild(a);
-                a.click();
-                URL.revokeObjectURL(url);
-                document.body.removeChild(a);
+                a.style.display = 'none'; a.href = url; a.download = `animation.${format}`;
+                document.body.appendChild(a); a.click();
+                URL.revokeObjectURL(url); document.body.removeChild(a);
             } catch (error) {
                 console.error('Export failed:', error);
                 alert(`Export failed. See console for details.`);
@@ -626,11 +617,7 @@
           onDragOver(index) { this.dragOverIndex = index; },
           onDragLeave() { this.dragOverIndex = null; },
           onDrop(dropIndex) {
-              if (this.dragStartIndex === null || this.dragStartIndex === dropIndex) {
-                this.dragStartIndex = null;
-                this.dragOverIndex = null;
-                return;
-              }
+              if (this.dragStartIndex === null || this.dragStartIndex === dropIndex) { this.dragStartIndex = null; this.dragOverIndex = null; return; }
               const draggedImage = this.sortedImages[this.dragStartIndex];
               const targetImage = this.sortedImages[dropIndex];
               if (draggedImage && targetImage) {
@@ -638,14 +625,11 @@
                   draggedImage.order = targetImage.order;
                   targetImage.order = draggedOrder;
               }
-              this.dragStartIndex = null;
-              this.dragOverIndex = null;
+              this.dragStartIndex = null; this.dragOverIndex = null;
               this.updatePreview();
           },
           openContextMenu(event, imageId) {
-            this.contextMenu.targetId = imageId;
-            this.contextMenu.x = event.clientX;
-            this.contextMenu.y = event.clientY;
+            this.contextMenu.targetId = imageId; this.contextMenu.x = event.clientX; this.contextMenu.y = event.clientY;
             this.contextMenu.visible = true;
             window.addEventListener('click', this.closeContextMenu, { once: true });
           },
@@ -670,19 +654,15 @@
           deleteAnimationBlock(id) {
             if (!this.selectedImage) return;
             this.selectedImage.animationBlocks = this.selectedImage.animationBlocks.filter(b => b.id !== id);
-            if (this.selectedBlock && this.selectedBlock.id === id) {
-                this.selectedBlock = null;
-            }
+            if (this.selectedBlock && this.selectedBlock.id === id) { this.selectedBlock = null; }
             this.updatePreview();
           },
           selectBlock(block) { this.selectedBlock = block; },
-        
           onBlockDragStart(event, block) {
               this.draggedBlockInfo = { blockId: block.id };
               event.dataTransfer.setData('text/plain', block.id);
               event.dataTransfer.effectAllowed = 'move';
           },
-          
           onBlockDrop(event) {
               if (!this.draggedBlockInfo || !this.selectedImage || !this.$refs.timelineWrapper) return;
               const draggedBlock = this.selectedImage.animationBlocks.find(b => b.id === this.draggedBlockInfo.blockId);
@@ -699,18 +679,10 @@
                       (snappedTime < existingBlock.startTime + existingBlock.duration) &&
                       (snappedTime + draggedBlock.duration > existingBlock.startTime)
                   );
-                  if (!hasOverlap) {
-                      draggedBlock.startTime = snappedTime;
-                      placed = true;
-                      break; 
-                  }
+                  if (!hasOverlap) { draggedBlock.startTime = snappedTime; placed = true; break; }
               }
-              if (!placed) {
-                  this.overlapError = true;
-                  setTimeout(() => this.overlapError = false, 2000);
-              } else {
-                  this.updatePreview();
-              }
+              if (!placed) { this.overlapError = true; setTimeout(() => this.overlapError = false, 2000); } 
+              else { this.updatePreview(); }
               this.draggedBlockInfo = null;
           },
           
@@ -719,12 +691,8 @@
             this.timelineWrapper = this.$refs.timelineWrapper;
             const savedProject = localStorage.getItem('webpAnimatorProject');
             if (savedProject) {
-                try {
-                    const data = JSON.parse(savedProject);
-                    this.project = data;
-                } catch {
-                    localStorage.removeItem('webpAnimatorProject');
-                }
+                try { this.project = JSON.parse(savedProject); } 
+                catch { localStorage.removeItem('webpAnimatorProject'); }
             }
             this.updatePreview();
           }
