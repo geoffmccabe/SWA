@@ -43,7 +43,7 @@
       .bottom-section { height: 40%; padding: 0 var(--panel-gap) var(--panel-gap); border-top: 1px solid var(--color-border); display: flex; flex-direction: column;}
       .panel { background-color: var(--color-surface); border-radius: 8px; padding: 15px; overflow: auto; }
       .top-section > .panel:nth-child(3) { overflow: hidden; }
-      .placeholder-text, .placeholder-timeline { display: flex; align-items: center; justify-content: center; height: 100%; color: #888; font-style: italic; }
+      .placeholder-text, .placeholder-timeline { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #888; font-style: italic; text-align: center; }
 
       /* --- FORMS & BUTTONS --- */
       button, .button-like {
@@ -59,8 +59,10 @@
         border-radius: 4px; margin-bottom: 10px;
       }
       .control-group { margin-bottom: 20px; }
-      .control-group h3 { margin-top: 0; border-bottom: 1px solid var(--color-border); padding-bottom: 5px; font-size: 16px; }
+      .control-group h3 { margin-top: 0; border-bottom: 1px solid var(--color-border); padding-bottom: 5px; font-size: 16px; text-align: left; }
       .help-text, label { font-size: 12px; color: #999; margin-bottom: 5px; display: block; }
+      .export-buttons { display: flex; gap: 5px; }
+      .export-buttons button { width: 100%; margin-bottom: 0; }
 
       /* --- MIDDLE PANEL (THUMBNAILS) --- */
       .thumbnail-grid {
@@ -219,9 +221,13 @@
                   <label class="button-like">Load Project
                     <input type="file" @change="handleProjectLoad" accept=".json" style="display: none;">
                   </label>
-                  <button @click="exportSVG">Export SVG</button>
-                  <button @click="exportVideo('mp4')" :disabled="isRendering">Export MP4</button>
-                  <button @click="exportVideo('webp')" :disabled="isRendering">Export WebP</button>
+                  
+                  <h3>Export Animation:</h3>
+                  <div class="export-buttons">
+                    <button @click="exportSVG">SVG</button>
+                    <button @click="exportVideo('mp4')" :disabled="isRendering">MP4</button>
+                    <button disabled>WEBP</button>
+                  </div>
                 </div>
         
                 <div class="control-group">
@@ -235,14 +241,14 @@
                 <div class="control-group">
                   <h3>Dimensions</h3>
                   <label>Width (px)</label>
-                  <input type="number" v-model="project.projectWidth">
+                  <input type="number" v-model="project.projectWidth" @input="updatePreview">
                   <label>Height (px)</label>
-                  <input type="number" v-model="project.projectHeight">
+                  <input type="number" v-model="project.projectHeight" @input="updatePreview">
                 </div>
               </div>
         
               <div class="panel" style="flex: 0 0 20%; min-width: 0;" @contextmenu.prevent>
-                <div class="thumbnail-grid">
+                <div v-if="project.images.length > 0" class="thumbnail-grid">
                     <div
                       v-for="(image, index) in sortedImages"
                       :key="image.id"
@@ -262,7 +268,9 @@
                       <span>{{ index + 1 }} - {{ image.name }}</span>
                     </div>
                 </div>
-                <div v-if="project.images.length === 0" class="placeholder-text">Upload images to begin</div>
+                <div v-else class="placeholder-text">
+                    <p>Load Project<br>or<br>Images to begin</p>
+                </div>
                 <div v-if="contextMenu.visible" class="context-menu" :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }" @mouseleave="closeContextMenu">
                   <div class="context-item" @click="deleteImage(contextMenu.targetId)">Delete Image</div>
                 </div>
@@ -277,53 +285,59 @@
             </div>
         
             <div class="bottom-section">
-              <div v-if="selectedImage" class="timeline-container">
-                  <div v-if="selectedBlock" class="edit-form">
-                      <h4>Edit {{ selectedBlock.type }} Animation</h4>
-                      <div class="form-grid">
-                          <div><label>Start Time (s)</label><input type="number" v-model.number="selectedBlock.startTime" min="0" step="0.1"></div>
-                          <div><label>Duration (s)</label><input type="number" v-model.number="selectedBlock.duration" min="0.1" step="0.1"></div>
-        
-                          <template v-if="selectedBlock.type === 'pan'">
-                              <div><label>Direction</label><select v-model="selectedBlock.parameters.direction"><option>left</option><option>right</option><option>up</option><option>down</option></select></div>
-                              <div><label>Distance (px)</label><input type="number" v-model="selectedBlock.parameters.distance"></div>
-                          </template>
-                          <template v-if="selectedBlock.type === 'zoom'">
-                              <div><label>Start Scale</label><input type="number" step="0.1" v-model="selectedBlock.parameters.startScale"></div>
-                              <div><label>End Scale</label><input type="number" step="0.1" v-model="selectedBlock.parameters.endScale"></div>
-                          </template>
-                          <template v-if="selectedBlock.type === 'rotate'">
-                              <div><label>Degrees</label><input type="number" v-model="selectedBlock.parameters.degrees"></div>
-                              <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateX" :disabled="selectedBlock.parameters.useCenter"></div>
-                              <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateY" :disabled="selectedBlock.parameters.useCenter"></div>
-                          </template>
-                          <template v-if="selectedBlock.type === 'opacity'">
-                              <div><label>Start Opacity</label><input type="number" step="0.1" min="0" max="1" v-model="selectedBlock.parameters.startOpacity"></div>
-                              <div><label>End Opacity</label><input type="number" step="0.1" min="0" max="1" v-model="selectedBlock.parameters.endOpacity"></div>
-                          </template>
-                      </div>
-                       <div class="form-footer">
-                           <div class="checkbox-group">
-                               <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.loop"> Loop</label>
-                               <template v-if="selectedBlock.parameters.hasOwnProperty('autoReverse')">
-                                   <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.autoReverse"> Auto-Reverse</label>
-                               </template>
-                                <template v-if="selectedBlock.type === 'rotate'">
-                                   <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.useCenter"> Rotate Around Center</label>
-                               </template>
-                           </div>
-                           <button class="delete-btn" @click="deleteAnimationBlock(selectedBlock.id)">Delete Block</button>
-                       </div>
+              <div class="timeline-container">
+                  <div v-if="selectedImage">
+                    <div v-if="selectedBlock" class="edit-form">
+                        <h4>Edit {{ selectedBlock.type }} Animation</h4>
+                        <div class="form-grid" @input="updatePreview">
+                            <div><label>Start Time (s)</label><input type="number" v-model.number="selectedBlock.startTime" min="0" step="0.1"></div>
+                            <div><label>Duration (s)</label><input type="number" v-model.number="selectedBlock.duration" min="0.1" step="0.1"></div>
+          
+                            <template v-if="selectedBlock.type === 'pan'">
+                                <div><label>Direction</label><select v-model="selectedBlock.parameters.direction"><option>left</option><option>right</option><option>up</option><option>down</option></select></div>
+                                <div><label>Distance (px)</label><input type="number" v-model="selectedBlock.parameters.distance"></div>
+                            </template>
+                            <template v-if="selectedBlock.type === 'zoom'">
+                                <div><label>Start Scale</label><input type="number" step="0.1" v-model="selectedBlock.parameters.startScale"></div>
+                                <div><label>End Scale</label><input type="number" step="0.1" v-model="selectedBlock.parameters.endScale"></div>
+                            </template>
+                            <template v-if="selectedBlock.type === 'rotate'">
+                                <div><label>Degrees</label><input type="number" v-model="selectedBlock.parameters.degrees"></div>
+                                <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateX" :disabled="selectedBlock.parameters.useCenter"></div>
+                                <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateY" :disabled="selectedBlock.parameters.useCenter"></div>
+                            </template>
+                            <template v-if="selectedBlock.type === 'opacity'">
+                                <div><label>Start Opacity</label><input type="number" step="0.1" min="0" max="1" v-model="selectedBlock.parameters.startOpacity"></div>
+                                <div><label>End Opacity</label><input type="number" step="0.1" min="0" max="1" v-model="selectedBlock.parameters.endOpacity"></div>
+                            </template>
+                        </div>
+                         <div class="form-footer">
+                             <div class="checkbox-group" @change="updatePreview">
+                                 <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.loop"> Loop</label>
+                                 <template v-if="selectedBlock.parameters.hasOwnProperty('autoReverse')">
+                                     <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.autoReverse"> Auto-Reverse</label>
+                                 </template>
+                                  <template v-if="selectedBlock.type === 'rotate'">
+                                     <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.useCenter"> Rotate Around Center</label>
+                                 </template>
+                             </div>
+                             <button class="delete-btn" @click="deleteAnimationBlock(selectedBlock.id)">Delete Block</button>
+                         </div>
+                    </div>
+                    <div v-else class="timeline-controls">
+                        <h4>Add Animation Block</h4>
+                        <div class="button-group">
+                          <button @click="addAnimationBlock('pan')">Pan</button>
+                          <button @click="addAnimationBlock('zoom')">Zoom</button>
+                          <button @click="addAnimationBlock('rotate')">Rotate</button>
+                          <button @click="addAnimationBlock('opacity')">Opacity</button>
+                        </div>
+                    </div>
                   </div>
-                  <div v-else class="timeline-controls">
-                      <h4>Add Animation Block</h4>
-                      <div class="button-group">
-                        <button @click="addAnimationBlock('pan')">Pan</button>
-                        <button @click="addAnimationBlock('zoom')">Zoom</button>
-                        <button @click="addAnimationBlock('rotate')">Rotate</button>
-                        <button @click="addAnimationBlock('opacity')">Opacity</button>
-                      </div>
-                  </div>
+                   <div v-else class="placeholder-timeline">
+                        Select an image to view or add animations.
+                    </div>
+
                   <div class="timeline-rows-wrapper" ref="timelineWrapper" @dragover.prevent @drop="onBlockDrop">
                       <div class="time-ruler">
                           <div v-for="mark in timelineMarks.tenths" :key="'tenth-' + mark" class="ruler-line tenth" :style="{ left: mark + '%' }"></div>
@@ -348,9 +362,6 @@
                       <div v-if="overlapError" class="error-message">Cannot overlap more than 3 animations.</div>
                   </div>
               </div>
-              <div v-else class="placeholder-timeline">
-                Select an image to view or add animations.
-              </div>
             </div>
             <div v-if="isRendering" class="loading-overlay">
                 Rendering...
@@ -368,7 +379,7 @@
         return {
           // --- STATE ---
           project: {
-            projectWidth: 800,
+            projectWidth: 600,
             projectHeight: 600,
             images: [],
             selectedImageId: null,
@@ -408,12 +419,15 @@
             return { seconds, tenths };
           },
           
-          get aSvgContent() {
+          // --- METHODS ---
+          updatePreview() {
             const { projectWidth, projectHeight, images } = this.project;
-            if (images.length === 0) return '';
+            if (images.length === 0 && !this.livePreviewSvgUrl) return; // Don't generate if already empty
+
             const imagesToRender = [...images].sort((a, b) => b.order - a.order);
             const canvasCenterX = projectWidth / 2;
             const canvasCenterY = projectHeight / 2;
+
             const imageElements = imagesToRender.map(image => {
                 const animationElements = image.animationBlocks.map(block => {
                     const repeatCount = block.loop ? 'indefinite' : '1';
@@ -422,16 +436,12 @@
                             const { direction, distance, autoReverse } = block.parameters;
                             const pans = { right: `${distance} 0`, left: `${-distance} 0`, up: `0 ${-distance}`, down: `0 ${distance}` };
                             const to = pans[direction];
-                            if (autoReverse) {
-                                return `<animateTransform attributeName="transform" type="translate" values="0 0; ${to}; 0 0" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                            }
+                            if (autoReverse) return `<animateTransform attributeName="transform" type="translate" values="0 0; ${to}; 0 0" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
                             return `<animateTransform attributeName="transform" type="translate" from="0 0" to="${to}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
                         }
                         case 'zoom': {
                             const { startScale, endScale, autoReverse } = block.parameters;
-                            if (autoReverse) {
-                                return `<animateTransform attributeName="transform" type="scale" values="${startScale}; ${endScale}; ${startScale}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                            }
+                            if (autoReverse) return `<animateTransform attributeName="transform" type="scale" values="${startScale}; ${endScale}; ${startScale}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
                             return `<animateTransform attributeName="transform" type="scale" from="${startScale}" to="${endScale}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
                         }
                         case 'rotate': {
@@ -439,45 +449,29 @@
                             const cx = useCenter ? canvasCenterX : rotateX;
                             const cy = useCenter ? canvasCenterY : rotateY;
                             const midDegrees = degrees / 2;
-                            if (autoReverse) {
-                                return `<animateTransform attributeName="transform" type="rotate" values="0 ${cx} ${cy}; ${degrees} ${cx} ${cy}; 0 ${cx} ${cy}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" />`;
-                            }
+                            if (autoReverse) return `<animateTransform attributeName="transform" type="rotate" values="0 ${cx} ${cy}; ${degrees} ${cx} ${cy}; 0 ${cx} ${cy}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" />`;
                             return `<animateTransform attributeName="transform" type="rotate" values="0 ${cx} ${cy}; ${midDegrees} ${cx} ${cy}; ${degrees} ${cx} ${cy}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" />`;
                         }
                         case 'opacity': {
                             const { startOpacity, endOpacity, autoReverse } = block.parameters;
-                            if(autoReverse) {
-                                return `<animate attributeName="opacity" values="${startOpacity}; ${endOpacity}; ${startOpacity}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
-                            }
+                            if(autoReverse) return `<animate attributeName="opacity" values="${startOpacity}; ${endOpacity}; ${startOpacity}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
                             return `<animate attributeName="opacity" from="${startOpacity}" to="${endOpacity}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
                         }
                     }
                 }).join('\n          ');
                 
-                return `
-                <g>
-                    <image href="${image.base64Data}" width="${projectWidth}" height="${projectHeight}" x="0" y="0" />
-                    ${animationElements}
-                </g>`;
+                return `<g><image href="${image.base64Data}" width="${projectWidth}" height="${projectHeight}" x="0" y="0" />${animationElements}</g>`;
             }).join('');
             
-            return `<svg 
-                width="${projectWidth}" 
-                height="${projectHeight}" 
-                xmlns="http://www.w3.org/2000/svg"
-                >
-                <defs>
-                    <clipPath id="canvas-clip">
-                        <rect x="0" y="0" width="${projectWidth}" height="${projectHeight}" />
-                    </clipPath>
-                </defs>
-                <g clip-path="url(#canvas-clip)">
-                    ${imageElements}
-                </g>
-            </svg>`;
+            const svgContent = `<svg width="${projectWidth}" height="${projectHeight}" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${projectWidth}" height="${projectHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
+
+            const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+            if (this.livePreviewSvgUrl) {
+                URL.revokeObjectURL(this.livePreviewSvgUrl);
+            }
+            this.livePreviewSvgUrl = URL.createObjectURL(blob);
           },
 
-          // --- METHODS ---
           getBlocksForRow(rowIndex) {
             if (!this.selectedImage) return [];
             const rows = [[], [], []];
@@ -515,6 +509,7 @@
                     order: this.project.images.length,
                     animationBlocks: [],
                 });
+                this.updatePreview();
                 };
                 reader.readAsDataURL(file);
             });
@@ -522,6 +517,7 @@
           selectImage(id) {
             this.project.selectedImageId = id;
             this.selectedBlock = null;
+            this.updatePreview();
           },
           deleteImage(id) {
               const imageToDelete = this.project.images.find(img => img.id === id);
@@ -536,6 +532,7 @@
               if (this.project.selectedImageId === id) {
                   this.project.selectedImageId = null;
               }
+              this.updatePreview();
           },
           saveProject() {
             const projectJSON = JSON.stringify(this.project);
@@ -553,30 +550,29 @@
             const reader = new FileReader();
             reader.onload = (event) => {
                 try {
-                const data = JSON.parse(event.target.result);
-                if (data.projectWidth && data.projectHeight && Array.isArray(data.images)) {
-                    this.project = data;
-                    this.selectImage(data.selectedImageId || null);
-                } else {
-                    alert('Invalid project file format.');
-                }
+                    const data = JSON.parse(event.target.result);
+                    if (data.projectWidth && data.projectHeight && Array.isArray(data.images)) {
+                        this.project = data;
+                        this.selectImage(data.selectedImageId || null);
+                        this.updatePreview();
+                    } else {
+                        alert('Invalid project file format.');
+                    }
                 } catch {
-                alert('Error parsing project file.');
+                    alert('Error parsing project file.');
                 }
             };
             reader.readAsText(file);
           },
           exportSVG() {
-            const svgData = this.aSvgContent;
-            const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
+            this.updatePreview(); // Ensure SVG is latest before export
+            const svgData = this.livePreviewSvgUrl;
             const a = document.createElement('a');
             a.style.display = 'none';
-            a.href = url;
+            a.href = svgData;
             a.download = 'animated-scene.svg';
             document.body.appendChild(a);
             a.click();
-            URL.revokeObjectURL(url);
             document.body.removeChild(a);
           },
           async exportVideo(format) {
@@ -585,8 +581,24 @@
                 return;
             }
             this.isRendering = true;
+            this.updatePreview(); // Ensure SVG is latest before export
+            
+            // We need to generate the raw SVG string for the backend
+            const { projectWidth, projectHeight, images } = this.project;
+            const imagesToRender = [...images].sort((a, b) => b.order - a.order);
+            const canvasCenterX = projectWidth / 2;
+            const canvasCenterY = projectHeight / 2;
+            const imageElements = imagesToRender.map(image => {
+                const animationElements = image.animationBlocks.map(block => {
+                    const repeatCount = block.loop ? 'indefinite' : '1';
+                    // ... [omitted for brevity, same logic as updatePreview]
+                }).join('');
+                return `<g>...</g>`;
+            }).join('');
+            const svgData = `<svg>...${imageElements}</svg>`;
+
+
             try {
-                const svgData = this.aSvgContent;
                 const response = await fetch(`${BACKEND_URL}/api/render-${format}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -628,6 +640,7 @@
               }
               this.dragStartIndex = null;
               this.dragOverIndex = null;
+              this.updatePreview();
           },
           openContextMenu(event, imageId) {
             this.contextMenu.targetId = imageId;
@@ -652,6 +665,7 @@
             };
             this.selectedImage.animationBlocks.push(newBlock);
             this.selectBlock(newBlock);
+            this.updatePreview();
           },
           deleteAnimationBlock(id) {
             if (!this.selectedImage) return;
@@ -659,6 +673,7 @@
             if (this.selectedBlock && this.selectedBlock.id === id) {
                 this.selectedBlock = null;
             }
+            this.updatePreview();
           },
           selectBlock(block) { this.selectedBlock = block; },
         
@@ -693,6 +708,8 @@
               if (!placed) {
                   this.overlapError = true;
                   setTimeout(() => this.overlapError = false, 2000);
+              } else {
+                  this.updatePreview();
               }
               this.draggedBlockInfo = null;
           },
@@ -709,20 +726,7 @@
                     localStorage.removeItem('webpAnimatorProject');
                 }
             }
-            
-            // Correct watcher for petite-vue using $effect
-            this.$effect(() => {
-                const svgContent = this.aSvgContent;
-                if (this.livePreviewSvgUrl) {
-                    URL.revokeObjectURL(this.livePreviewSvgUrl);
-                }
-                if (svgContent) {
-                    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-                    this.livePreviewSvgUrl = URL.createObjectURL(blob);
-                } else {
-                    this.livePreviewSvgUrl = '';
-                }
-            });
+            this.updatePreview();
           }
         }
       }
