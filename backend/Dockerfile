@@ -1,23 +1,23 @@
-# Use an official Node.js image that gives us a full Linux environment
+# Use a Node.js base image
 FROM node:18-slim
 
-# Update package lists and install FFmpeg
+# Install FFmpeg
 RUN apt-get update && apt-get install -y ffmpeg
 
-# Create and set the working directory in the container
+# Set up the working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json
-COPY package*.json ./
+# Copy the backend's package files
+COPY backend/package*.json ./
 
-# Install the application's dependencies
+# Install backend dependencies
 RUN npm install --production
 
-# Copy the rest of your application's code into the container
+# Copy the ENTIRE repository content into the container
 COPY . .
 
-# Tell Docker that the container will listen on this port
+# Expose the port the app will run on
 EXPOSE 3000
 
-# The command to run when the container starts
-CMD ["node", "index.js"]
+# Define the command to start the app, pointing to the backend's index.js
+CMD ["node", "backend/index.js"]
