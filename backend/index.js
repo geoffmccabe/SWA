@@ -5,9 +5,6 @@ const path = require('path');
 const crypto = require('crypto');
 
 const app = express();
-// Use a large limit to accommodate potentially large SVG strings
-app.use(express.json({ limit: '10mb' }));
-
 const PORT = process.env.PORT || 3000;
 const TEMP_DIR = path.join(__dirname, 'tmp');
 
@@ -16,6 +13,14 @@ if (!fs.existsSync(TEMP_DIR)) {
   fs.mkdirSync(TEMP_DIR);
 }
 
+// --- MIDDLEWARE ---
+// Serve static files (like index.html) from the parent directory
+app.use(express.static(path.join(__dirname, '..')));
+// Use a large limit to accommodate potentially large SVG strings in API requests
+app.use(express.json({ limit: '10mb' }));
+
+
+// --- API ROUTES ---
 const render = (req, res, format) => {
   const svgData = req.body.svg;
   if (!svgData) {
@@ -32,7 +37,6 @@ const render = (req, res, format) => {
       return res.status(500).send('Failed to write temporary file.');
     }
 
-    // FFmpeg command-line options
     const command = format === 'mp4'
       ? `ffmpeg -i ${inputPath} -c:v libx264 -pix_fmt yuv420p -y ${outputPath}`
       : `ffmpeg -i ${inputPath} -y ${outputPath}`;
@@ -40,7 +44,6 @@ const render = (req, res, format) => {
     exec(command, (execErr) => {
       if (execErr) {
         console.error(`Error executing FFmpeg for ${format}:`, execErr);
-        // Clean up temp input file on error
         fs.unlink(inputPath, () => {});
         return res.status(500).send(`Failed to render ${format}.`);
       }
@@ -49,7 +52,6 @@ const render = (req, res, format) => {
         if (downloadErr) {
           console.error(`Error sending ${format} file:`, downloadErr);
         }
-        // Cleanup both temporary files after download is complete or on error
         fs.unlink(inputPath, () => {});
         fs.unlink(outputPath, () => {});
       });
@@ -65,11 +67,7 @@ app.post('/api/render-webp', (req, res) => {
   render(req, res, 'webp');
 });
 
-// Health check endpoint for Railway
-app.get('/', (req, res) => {
-  res.status(200).send('Renderer is running.');
-});
-
+// --- SERVER STARTUP ---
 app.listen(PORT, () => {
-  console.log(`Renderer server listening on port ${PORT}`);
+  console.log(`Renderer and Frontend server listening on port ${PORT}`);
 });
