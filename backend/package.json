@@ -1,0 +1,12 @@
+{
+  "name": "animation-renderer-backend",
+  "version": "1.0.0",
+  "description": "API to render animated SVGs to video formats using FFmpeg.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
