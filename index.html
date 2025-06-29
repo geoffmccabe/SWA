@@ -10,7 +10,7 @@
         --color-background: #1a1a1a;
         --color-surface: #2a2a2e;
         --color-surface-light: #3c3c42;
-        --color-primary: #AAAAAA; /* Lighter grey for better visibility */
+        --color-primary: #FFFFFF; /* White for max visibility */
         --color-text: #eaeaea;
         --color-border: #555;
         --panel-gap: 10px;
@@ -49,12 +49,12 @@
       .panel { background-color: var(--color-surface); border-radius: 8px; padding: 15px; overflow: auto; }
       .top-section > .panel:nth-child(1) { overflow: hidden; }
       .top-section > .panel:nth-child(3) { overflow: hidden; }
-      .placeholder-text, .placeholder-timeline { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #888; font-style: italic; text-align: center; }
+      .placeholder-text { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #888; font-style: italic; text-align: center; }
       .placeholder-text h2 { margin: 0 0 10px 0; color: #aaa; font-style: normal; }
 
       /* --- FORMS & BUTTONS --- */
       button, .button-like {
-        background-color: var(--color-primary); color: white; border: none; padding: 10px 15px;
+        background-color: #777777; color: white; border: none; padding: 10px 15px;
         border-radius: 5px; cursor: pointer; font-size: 14px; transition: background-color 0.2s;
         width: 100%; margin-bottom: 10px; text-align: center; display: block;
       }
@@ -128,7 +128,7 @@
         border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.5); z-index: 1000; width: 150px;
       }
       .context-item { padding: 10px 15px; cursor: pointer; }
-      .context-item:hover { background-color: var(--color-primary); }
+      .context-item:hover { background-color: #777777; }
 
       /* --- RIGHT PANEL (PREVIEW) --- */
       .safari-warning {
@@ -140,20 +140,14 @@
       /* --- BOTTOM PANEL (TIMELINE) --- */
       .timeline-container { display: flex; flex-direction: column; height: 100%; }
       .timeline-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px;}
-      .timeline-header-thumb { height: 60px; aspect-ratio: 1/1; padding: 6px; }
+      .timeline-header-thumb { height: 60px; width: 60px; flex-shrink: 0; padding: 6px; }
       .timeline-header-thumb img { width: 100%; height: 100%; object-fit: contain; border-radius: 4px; }
-      .timeline-controls-wrapper { flex-grow: 1; }
+      .timeline-controls-wrapper { flex-grow: 1; min-width: 0; }
       .timeline-controls, .edit-form { padding: 10px; background-color: var(--color-surface); border-radius: 8px; }
       .timeline-controls h4, .edit-form h4 { margin: 0 0 10px; }
-      .timeline-controls .button-group {
-        display: flex;
-        gap: 10px;
-      }
-      .timeline-controls .button-group button {
-        width: auto;
-        flex-grow: 1;
-        margin-bottom: 0;
-      }
+      .timeline-controls .button-group { display: flex; gap: 10px; }
+      .timeline-controls .button-group button { width: auto; flex-grow: 1; margin-bottom: 0; }
+
       .timeline-rows-wrapper { flex-grow: 1; position: relative; }
       .timeline-row { position: relative; height: 33.33%; border-top: 1px solid var(--color-border); }
       .timeline-row:first-child { border-top: none; }
@@ -455,7 +449,6 @@
           // --- METHODS ---
           updatePreview() {
             const { projectWidth, projectHeight, images } = this.project;
-            
             if (images.length === 0) {
                 if(this.livePreviewSvgUrl) {
                     URL.revokeObjectURL(this.livePreviewSvgUrl);
@@ -463,55 +456,14 @@
                 }
                 return;
             };
-
-            const imagesToRender = [...this.project.images].sort((a, b) => b.order - a.order);
-            const canvasCenterX = projectWidth / 2;
-            const canvasCenterY = projectHeight / 2;
-
-            const imageElements = imagesToRender.map(image => {
-                const animationElements = image.animationBlocks.map(block => {
-                    const repeatCount = block.loop ? 'indefinite' : '1';
-                    switch (block.type) {
-                        case 'pan': {
-                            const { direction, distance, autoReverse } = block.parameters;
-                            const pans = { right: `${distance} 0`, left: `${-distance} 0`, up: `0 ${-distance}`, down: `0 ${distance}` };
-                            const to = pans[direction];
-                            if (autoReverse) return `<animateTransform attributeName="transform" type="translate" values="0 0; ${to}; 0 0" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                            return `<animateTransform attributeName="transform" type="translate" from="0 0" to="${to}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                        }
-                        case 'zoom': {
-                            const { startScale, endScale, autoReverse } = block.parameters;
-                            if (autoReverse) return `<animateTransform attributeName="transform" type="scale" values="${startScale}; ${endScale}; ${startScale}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                            return `<animateTransform attributeName="transform" type="scale" from="${startScale}" to="${endScale}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                        }
-                        case 'rotate': {
-                            const { degrees, autoReverse, useCenter, rotateX, rotateY } = block.parameters;
-                            const cx = useCenter ? canvasCenterX : rotateX;
-                            const cy = useCenter ? canvasCenterY : rotateY;
-                            const midDegrees = degrees / 2;
-                            if (autoReverse) return `<animateTransform attributeName="transform" type="rotate" values="0 ${cx} ${cy}; ${degrees} ${cx} ${cy}; 0 ${cx} ${cy}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" />`;
-                            return `<animateTransform attributeName="transform" type="rotate" values="0 ${cx} ${cy}; ${midDegrees} ${cx} ${cy}; ${degrees} ${cx} ${cy}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" />`;
-                        }
-                        case 'opacity': {
-                            const { startOpacity, endOpacity, autoReverse } = block.parameters;
-                            if(autoReverse) return `<animate attributeName="opacity" values="${startOpacity}; ${endOpacity}; ${startOpacity}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
-                            return `<animate attributeName="opacity" from="${startOpacity}" to="${endOpacity}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
-                        }
-                    }
-                }).join('');
-                return `<g>${animationElements}<image href="${image.base64Data}" width="${projectWidth}" height="${projectHeight}" x="0" y="0" /></g>`;
-            }).join('');
-            
-            const svgContent = `<svg width="${projectWidth}" height="${projectHeight}" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${projectWidth}" height="${projectHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
-
+            const svgContent = this.getSvgString();
             const blob = new Blob([svgContent], { type: 'image/svg+xml' });
             if (this.livePreviewSvgUrl) { URL.revokeObjectURL(this.livePreviewSvgUrl); }
             this.livePreviewSvgUrl = URL.createObjectURL(blob);
           },
           getSvgString() {
               const { projectWidth, projectHeight, images } = this.project;
-              if (images.length === 0) return '';
-              const imagesToRender = [...images].sort((a, b) => b.order - a.order);
+              const imagesToRender = [...this.project.images].sort((a, b) => b.order - a.order);
               const canvasCenterX = projectWidth / 2;
               const canvasCenterY = projectHeight / 2;
               const imageElements = imagesToRender.map(image => {
@@ -672,6 +624,8 @@
                   const draggedOrder = draggedImage.order;
                   draggedImage.order = targetImage.order;
                   targetImage.order = draggedOrder;
+                  // Force petite-vue to re-evaluate the sortedImages computed property
+                  this.project.images = [...this.project.images];
               }
               this.draggedItemId = null; this.dragOverItemId = null;
               this.updatePreview();
@@ -725,8 +679,9 @@
               const rawTime = (dropX / timelineRect.width) * this.timelineDuration;
               const snappedTime = Math.max(0, Math.round(rawTime * 10) / 10);
 
-              const targetRowElement = document.elementsFromPoint(event.clientX, event.clientY).find(el => el.classList.contains('timeline-row'));
-              const targetRowIndex = targetRowElement ? parseInt(targetRowElement.dataset.rowIndex, 10) : 0;
+              const rowHeight = timelineRect.height / 3;
+              const dropY = event.clientY - timelineRect.top;
+              const targetRowIndex = Math.min(2, Math.floor(dropY / rowHeight));
               
               let placed = false;
               // Check target row first
