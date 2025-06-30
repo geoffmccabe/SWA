@@ -1,0 +1,77 @@
+<div class="panel" style="flex: 1 1 auto;">
+    <div class="control-group">
+        <h3>Project</h3>
+        <button @click="saveProject">Save Project</button>
+        <label class="button-like">Load Project
+            <input type="file" @change="handleProjectLoad" accept=".json" style="display: none;">
+        </label>
+    </div>
+    <div class="control-group">
+        <h3>Export Animation:</h3>
+        <div class="export-buttons">
+            <button @click="exportSVG">SVG</button>
+            <button @click="exportVideo('mp4')" :disabled="isRendering">MP4</button>
+            <button @click="exportVideo('webp')" :disabled="isRendering">WEBP</button>
+        </div>
+    </div>
+    <div class="control-group">
+        <h3>Images</h3>
+        <label class="button-like">Load Images
+            <input type="file" @change="handleImageUpload" multiple accept="image/webp,image/jpeg,image/png" style="display: none;">
+        </label>
+        <p class="help-text">Upload up to 10 WebP, JPG, or PNG files.</p>
+    </div>
+    <div class="control-group">
+        <h3>Dimensions</h3>
+        <div class="dimensions-grid">
+            <div>
+                <label>Width (px)</label>
+                <input type="number" v-model="project.projectWidth" @input="updatePreview">
+            </div>
+            <div>
+                <label>Height (px)</label>
+                <input type="number" v-model="project.projectHeight" @input="updatePreview">
+            </div>
+        </div>
+    </div>
+</div>
+<div class="panel" style="flex: 0 0 20%; min-width: 0;" @contextmenu.prevent>
+    <div v-if="project.images.length > 0" class="thumbnail-grid">
+        <div
+          v-for="(image, index) in sortedImages"
+          :key="image.id"
+          class="thumbnail-item"
+          :class="{ selected: image.id === project.selectedImageId, 'drag-over': dragOverItemId === image.id }"
+          :draggable="true"
+          @click="selectImage(image.id)"
+          @contextmenu.prevent="openContextMenu($event, image.id)"
+          @dragstart="onDragStart(image.id)"
+          @dragover.prevent="onDragOver(image.id)"
+          @dragleave="onDragLeave"
+          @drop="onDrop(image.id)"
+        >
+            <div class="thumbnail-image-container">
+                <img :src="image.base64Data" alt="thumbnail">
+            </div>
+            <span>{{ index + 1 }} - {{ image.name }}</span>
+        </div>
+    </div>
+    <div v-else class="placeholder-text">
+        <p>Load Project<br>or<br>Images to begin</p>
+    </div>
+    <div v-if="contextMenu.visible" class="context-menu" :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }" @mouseleave="closeContextMenu">
+        <div class="context-item" @click="deleteImage(contextMenu.targetId)">Delete Image</div>
+    </div>
+</div>
+<div class="panel" style="flex: 0 0 60%; display: flex; align-items: center; justify-content: center;">
+     <div v-if="isSafari" class="safari-warning">
+         Note: Live preview may not display correctly in Safari. Your export will still work.
+     </div>
+     <div v-if="project.images.length > 0">
+         <object type="image/svg+xml" :data="livePreviewSvgUrl" class="live-preview"></object>
+     </div>
+     <div v-else class="placeholder-text">
+         <h2>Preview Panel</h2>
+         <p>Load Images to Activate</p>
+     </div>
+</div>
