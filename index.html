@@ -265,13 +265,10 @@
     <script src="https://unpkg.com/petite-vue"></script>
     <script>
       const { createApp } = PetiteVue;
-
-      // Backend URL for Railway deployment
       const BACKEND_URL = 'https://swa-exporter.up.railway.app';
 
       function App() {
         return {
-          // --- STATE ---
           project: {
             projectWidth: 600,
             projectHeight: 600,
@@ -289,7 +286,6 @@
           livePreviewSvgUrl: '',
           dragPlaceholder: { visible: false, left: '0px', width: '0px', top: '0px', height: '0px' },
 
-          // --- COMPUTED ---
           get sortedImages() {
             return [...this.project.images].sort((a, b) => a.order - b.order);
           },
@@ -313,7 +309,6 @@
             return { seconds, tenths };
           },
 
-          // --- METHODS ---
           updatePreview() {
             if (this.previewDebounce) clearTimeout(this.previewDebounce);
             this.previewDebounce = setTimeout(() => {
@@ -384,7 +379,6 @@
             return `<svg width="${projectWidth}" height="${projectHeight}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${projectWidth}" height="${projectHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
           },
 
-          // --- LIFECYCLE ---
           async mounted() {
             try {
               const [topResponse, bottomResponse] = await Promise.all([
@@ -398,6 +392,11 @@
               const bottomHtml = await bottomResponse.text();
               document.getElementById('top-section').innerHTML = topHtml;
               document.getElementById('bottom-section').innerHTML = bottomHtml;
+              // Initialize Petite-Vue for panels
+              this.$nextTick(() => {
+                createApp({}).mount('#top-section');
+                createApp({}).mount('#bottom-section');
+              });
             } catch (error) {
               console.error('Error loading panels:', error);
               alert('Failed to load UI components. Please refresh the page.');
