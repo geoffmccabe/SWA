@@ -31,9 +31,10 @@ const App = {
   draggedItemId: null,
   draggedBlockInfo: null,
   dragOverItemId: null,
-  contextMenu: { visible: false, x: 0, y: 0, targetId: null },
+  contextMenu: { visible: false, x: 0, y: 0, targetId: null, showImageDialog: false, dialogImage: null },
   livePreviewSvgUrl: '',
   dragPlaceholder: { visible: false, left: '0px', width: '0px', top: '0px', height: '0px' },
+  dialogZoom: 1,
 
   get sortedImages() {
     return [...this.project.images].sort((a, b) => a.order - b.order);
@@ -58,6 +59,11 @@ const App = {
     return {
       top: `${this.contextMenu.y}px`,
       left: `${this.contextMenu.x}px`
+    };
+  },
+  get dialogImageStyles() {
+    return {
+      transform: `scale(${this.dialogZoom})`
     };
   },
   animationBlockStyles(block) {
@@ -96,8 +102,10 @@ const App = {
     const { projectWidth, projectHeight, images } = this.project;
     if (images.length === 0) return '';
     const imagesToRender = [...images].sort((a, b) => b.order - a.order);
-    const previewWidth = 600; // Preview panel width
-    const previewHeight = 600; // Preview panel height
+    const previewWidth = 600;
+    const previewHeight = 600;
+    const scaleX = previewWidth / projectWidth;
+    const scaleY = previewHeight / projectHeight;
     const canvasCenterX = previewWidth / 2;
     const canvasCenterY = previewHeight / 2;
     const imageElements = imagesToRender.map(image => {
@@ -109,15 +117,15 @@ const App = {
         switch (block.type) {
           case 'pan': {
             const { direction, distance, autoReverse } = block.parameters;
-            const pans = { right: `${distance} 0`, left: `${-distance} 0`, up: `0 ${-distance}`, down: `0 ${distance}` };
+            const pans = { right: `${distance * scaleX} 0`, left: `${-distance * scaleX} 0`, up: `0 ${-distance * scaleY}`, down: `0 ${distance * scaleY}` };
             const to = pans[direction];
             animations += `<animateTransform attributeName="transform" type="translate" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="0 0; ${to}; 0 0" keyTimes="0; 0.5; 1"` : `from="0 0" to="${to}"`} />`;
             break;
           }
           case 'zoom': {
             const { startScale, endScale, autoReverse, useCenter, zoomX, zoomY } = block.parameters;
-            const cx = useCenter ? canvasCenterX : zoomX * (previewWidth / projectWidth);
-            const cy = useCenter ? canvasCenterY : zoomY * (previewHeight / projectHeight);
+            const cx = useCenter ? canvasCenterX : zoomX * scaleX;
+            const cy = useCenter ? canvasCenterY : zoomY * scaleY;
             const fromTx = cx * (1 - startScale);
             const fromTy = cy * (1 - startScale);
             const toTx = cx * (1 - endScale);
@@ -128,8 +136,8 @@ const App = {
           }
           case 'rotate': {
             const { degrees, autoReverse, useCenter, rotateX, rotateY } = block.parameters;
-            const cx = useCenter ? canvasCenterX : rotateX * (previewWidth / projectWidth);
-            const cy = useCenter ? canvasCenterY : rotateY * (previewHeight / projectHeight);
+            const cx = useCenter ? canvasCenterX : rotateX * scaleX;
+            const cy = useCenter ? canvasCenterY : rotateY * scaleY;
             const from = `0 ${cx} ${cy}`;
             const to = `${degrees} ${cx} ${cy}`;
             animations += `<animateTransform attributeName="transform" type="rotate" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${from}; ${to}; ${from}" keyTimes="0; 0.5; 1"` : `from="${from}" to="${to}"`} />`;
@@ -137,13 +145,16 @@ const App = {
           }
           case 'opacity': {
             const { startOpacity, endOpacity, autoReverse } = block.parameters;
-            animations += `<animate attributeName="opacity" fill="freeze" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${startOpacity}; ${endOpacity}; ${startOpacity}" keyTimes="0; 0.5; 1"` : `from="${startOpacity}" to="${endOpacity}"`} />`;
+            const baseOpacity = image.baseOpacity || 1;
+            animations += `<animate attributeName="opacity" fill="freeze" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${startOpacity * baseOpacity}; ${endOpacity * baseOpacity}; ${startOpacity * baseOpacity}" keyTimes="0; 0.5; 1"` : `from="${startOpacity * baseOpacity}" to="${endOpacity * baseOpacity}"`} />`;
             break;
           }
         }
         return animations;
       }).join('');
-      return `<g>${animationElements}<image href="${image.base64Data}" width="${projectWidth}" height="${projectHeight}" x="0" y="0" /></g>`;
+      const opacityStyle = image.baseOpacity ? `opacity="${image.baseOpacity}"` : '';
+      const filterStyle = image.blendMode && image.blendMode !== 'normal' ? `style="mix-blend-mode: ${image.blendMode}"` : '';
+      return `<g ${opacityStyle} ${filterStyle}>${animationElements}<image href="${image.base64Data}" width="${previewWidth}" height="${previewHeight}" x="0" y="0" /></g>`;
     }).join('');
     return `<svg width="${previewWidth}" height="${previewHeight}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${previewWidth}" height="${previewHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
   },
@@ -153,11 +164,23 @@ const App = {
     const readPromises = [...files].map((file, i) => {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = (event) => resolve({
-          id: `img_${Date.now()}_${i}`, name: file.name, base64Data: event.target.result,
-          order: this.project.images.length + i, animationBlocks: [],
-        });
-        reader.onerror = (error) => reject(error);
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => resolve({
+            id: `img_${Date.now()}_${i}`,
+            name: file.name,
+            base64Data: event.target.result,
+            order: this.project.images.length + i,
+            animationBlocks: [],
+            baseOpacity: 1,
+            blendMode: 'normal',
+            width: img.width,
+            height: img.height
+          });
+          img.onerror = reject;
+          img.src = event.target.result;
+        };
+        reader.onerror = reject;
         reader.readAsDataURL(file);
       });
     });
@@ -181,6 +204,11 @@ const App = {
   deleteImage(id) {
     const imageToDelete = this.project.images.find(img => img.id === id);
     if (!imageToDelete) return;
+    if (imageToDelete.animationBlocks.length > 0) {
+      if (!confirm(`Are you sure you want to delete "${imageToDelete.name}"? It has ${imageToDelete.animationBlocks.length} animation block(s).`)) {
+        return;
+      }
+    }
     const deletedOrder = imageToDelete.order;
     this.project.images = this.project.images.filter(img => img.id !== id);
     this.project.images.forEach(img => { if (img.order > deletedOrder) img.order--; });
@@ -278,13 +306,45 @@ const App = {
     this.updatePreview();
   },
   openContextMenu(event, imageId) {
+    event.preventDefault();
     this.contextMenu.targetId = imageId;
     this.contextMenu.x = event.clientX;
     this.contextMenu.y = event.clientY;
     this.contextMenu.visible = true;
+    this.contextMenu.showImageDialog = true;
+    this.contextMenu.dialogImage = this.project.images.find(img => img.id === imageId);
+    this.dialogZoom = 1;
     window.addEventListener('click', this.closeContextMenu, { once: true });
   },
-  closeContextMenu() { this.contextMenu.visible = false; },
+  closeContextMenu() {
+    this.contextMenu.visible = false;
+    this.contextMenu.showImageDialog = false;
+    this.contextMenu.dialogImage = null;
+    this.dialogZoom = 1;
+  },
+  updateImageProperties(imageId, property, value) {
+    const image = this.project.images.find(img => img.id === imageId);
+    if (image) {
+      if (property === 'width' || property === 'height') {
+        image[property] = Number(value);
+        if (property === 'width') {
+          image.height = Math.round((image.height / image.width) * value);
+        } else {
+          image.width = Math.round((image.width / image.height) * value);
+        }
+      } else {
+        image[property] = value;
+      }
+      this.updatePreview();
+    }
+  },
+  zoomDialogImage(direction) {
+    if (direction === 'in') {
+      this.dialogZoom = Math.min(this.dialogZoom + 0.1, 3);
+    } else {
+      this.dialogZoom = Math.max(this.dialogZoom - 0.1, 0.5);
+    }
+  },
   getBlocksForRow(rowIndex) {
     if (!this.selectedImage) return [];
     return this.selectedImage.animationBlocks.filter(b => b.rowIndex === rowIndex);
