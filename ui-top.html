@@ -52,6 +52,7 @@
         >
             <div class="thumbnail-image-container">
                 <img :src="image.base64Data" alt="thumbnail">
+                <button class="thumbnail-plus" @click.stop="openImageDialog(image.id)">+</button>
             </div>
             <span>{{ index + 1 }} - {{ image.name }}</span>
         </div>
@@ -59,31 +60,33 @@
     <div v-else class="placeholder-text">
         <p>Load Project<br>or<br>Images to begin</p>
     </div>
-    <div v-if="contextMenu.visible" class="context-menu" :style="contextMenuStyles" @mouseleave="closeContextMenu">
-        <div class="context-item" @click="deleteImage(contextMenu.targetId)">Delete Image</div>
-        <div class="context-item" @click="contextMenu.showImageDialog = true">View Image</div>
+    <div v-if="contextMenu.visible" class="context-menu" :style="contextMenuStyles">
+        <div class="context-item" @click.stop="deleteImage(contextMenu.targetId)">Delete Image</div>
+        <div class="context-item" @click.stop="contextMenu.showImageDialog = true">View Image</div>
     </div>
     <div v-if="contextMenu.showImageDialog && contextMenu.dialogImage" class="image-dialog">
         <div class="image-dialog-content">
+            <button class="dialog-close" @click.stop="closeContextMenu">[x]</button>
             <div class="image-dialog-header">
                 <span>Layer {{ contextMenu.dialogImage.order + 1 }}</span>
                 <span>{{ contextMenu.dialogImage.name }}</span>
             </div>
+            <hr class="image-dialog-divider">
             <div class="image-dialog-image">
                 <img :src="contextMenu.dialogImage.base64Data" :style="dialogImageStyles">
             </div>
             <div class="image-dialog-controls">
                 <div class="control-group">
                     <label>Width (px)</label>
-                    <input type="number" v-model.number="contextMenu.dialogImage.width" @input="updateImageProperties(contextMenu.dialogImage.id, 'width', $event.target.value)">
+                    <input type="number" v-model.number="contextMenu.dialogImage.width" @input.stop="updateImageProperties(contextMenu.dialogImage.id, 'width', $event.target.value)">
                 </div>
                 <div class="control-group">
                     <label>Height (px)</label>
-                    <input type="number" v-model.number="contextMenu.dialogImage.height" @input="updateImageProperties(contextMenu.dialogImage.id, 'height', $event.target.value)">
+                    <input type="number" v-model.number="contextMenu.dialogImage.height" @input.stop="updateImageProperties(contextMenu.dialogImage.id, 'height', $event.target.value)">
                 </div>
                 <div class="control-group">
                     <label>Effect</label>
-                    <select v-model="contextMenu.dialogImage.blendMode" @change="updateImageProperties(contextMenu.dialogImage.id, 'blendMode', $event.target.value)">
+                    <select v-model="contextMenu.dialogImage.blendMode" @change.stop="updateImageProperties(contextMenu.dialogImage.id, 'blendMode', $event.target.value)">
                         <option value="normal">Normal</option>
                         <option value="multiply">Multiply</option>
                         <option value="hard-light">Hard Light</option>
@@ -101,12 +104,12 @@
                 </div>
                 <div class="control-group">
                     <label>Transparency (%)</label>
-                    <input type="range" min="0" max="100" v-model.number="contextMenu.dialogImage.baseOpacity" @input="updateImageProperties(contextMenu.dialogImage.id, 'baseOpacity', $event.target.value / 100)">
+                    <input type="range" min="0" max="100" v-model.number="contextMenu.dialogImage.baseOpacity" @input.stop="updateImageProperties(contextMenu.dialogImage.id, 'baseOpacity', $event.target.value / 100)">
                 </div>
                 <div class="control-group">
-                    <button @click="zoomDialogImage('in')">Zoom +</button>
-                    <button @click="zoomDialogImage('out')">Zoom -</button>
-                    <button @click="deleteImage(contextMenu.dialogImage.id)">Delete</button>
+                    <button @click.stop="zoomDialogImage('in')">Zoom +</button>
+                    <button @click.stop="zoomDialogImage('out')">Zoom -</button>
+                    <button @click.stop="deleteImage(contextMenu.dialogImage.id)">Delete</button>
                 </div>
             </div>
         </div>
