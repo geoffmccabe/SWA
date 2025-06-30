@@ -56,20 +56,20 @@
             </div>
         </div>
     </div>
-    <div class="timeline-rows-wrapper" ref="timelineWrapper" @dragover.prevent="onBlockDragOver" @dragleave="onBlockDragLeave" @drop="onBlockDragDrop">
+    <div class="timeline-rows-wrapper">
         <div class="time-ruler">
             <div v-for="mark in timelineMarks.tenths" :key="'tenth-' + mark" class="ruler-line tenth" :style="{ left: mark + '%' }"></div>
             <div v-for="mark in timelineMarks.seconds" :key="'sec-' + mark.pos" class="ruler-line second" :style="{ left: mark.pos + '%' }"></div>
             <div v-for="mark in timelineMarks.seconds" :key="'label-' + mark.pos" class="ruler-label" :style="{ left: mark.pos + '%' }">{{ mark.label }}s</div>
         </div>
-        <div v-if="dragPlaceholder.visible" class="drag-placeholder" :class="dragPlaceholderStyles"></div>
+        <div v-if="dragPlaceholder.visible" class="drag-placeholder" :style="dragPlaceholderStyles"></div>
         <div v-for="rowIndex in [0, 1, 2]" :key="rowIndex" class="timeline-row" :data-row-index="rowIndex">
             <div
                 v-for="block in getBlocksForRow(rowIndex)"
                 :key="block.id"
                 class="animation-block"
                 :class="[block.type, { 'selected': selectedBlock && selectedBlock.id === block.id }]"
-                :class="animationBlockStyles(block)"
+                :style="animationBlockStyles(block)"
                 draggable="true"
                 @dragstart="onBlockDragStart($event, block)"
                 @click="selectBlock(block)"
