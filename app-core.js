@@ -31,7 +31,7 @@ const App = {
   draggedItemId: null,
   draggedBlockInfo: null,
   dragOverItemId: null,
-  contextMenu: { visible: false, x: 0, y: 0, targetId: null, showImageDialog: false, dialogImage: null },
+  contextMenu: { visible: false, x: 0, y: 0, targetId: null, showImageDialog: false, dialogImage: null, showConfirmDialog: false },
   livePreviewSvgUrl: '',
   dragPlaceholder: { visible: false, left: '0px', width: '0px', top: '0px', height: '0px' },
   dialogZoom: 1,
@@ -104,10 +104,8 @@ const App = {
     const imagesToRender = [...images].sort((a, b) => b.order - a.order);
     const previewWidth = 600;
     const previewHeight = 600;
-    const scaleX = previewWidth / projectWidth;
-    const scaleY = previewHeight / projectHeight;
     const imageElements = imagesToRender.map(image => {
-      const imageScale = Math.min(scaleX, scaleY);
+      const imageScale = Math.min(previewWidth / image.width, previewHeight / image.height);
       const scaledWidth = image.width * imageScale;
       const scaledHeight = image.height * imageScale;
       const canvasCenterX = previewWidth / 2;
@@ -208,9 +206,9 @@ const App = {
     const imageToDelete = this.project.images.find(img => img.id === id);
     if (!imageToDelete) return;
     if (imageToDelete.animationBlocks.length > 0) {
-      if (!confirm(`Are you sure you want to delete "${imageToDelete.name}"? It has ${imageToDelete.animationBlocks.length} animation block(s).`)) {
-        return;
-      }
+      this.contextMenu.showConfirmDialog = true;
+      this.contextMenu.targetId = id;
+      return;
     }
     const deletedOrder = imageToDelete.order;
     this.project.images = this.project.images.filter(img => img.id !== id);
@@ -218,7 +216,25 @@ const App = {
     if (this.project.selectedImageId === id) {
       this.project.selectedImageId = this.project.images.length > 0 ? this.sortedImages[0].id : null;
     }
+    this.closeContextMenu();
     this.updatePreview();
+  },
+  confirmDeleteImage() {
+    const id = this.contextMenu.targetId;
+    const imageToDelete = this.project.images.find(img => img.id === id);
+    if (!imageToDelete) return;
+    const deletedOrder = imageToDelete.order;
+    this.project.images = this.project.images.filter(img => img.id !== id);
+    this.project.images.forEach(img => { if (img.order > deletedOrder) img.order--; });
+    if (this.project.selectedImageId === id) {
+      this.project.selectedImageId = this.project.images.length > 0 ? this.sortedImages[0].id : null;
+    }
+    this.closeContextMenu();
+    this.updatePreview();
+  },
+  cancelDeleteImage() {
+    this.contextMenu.showConfirmDialog = false;
+    this.contextMenu.targetId = null;
   },
   saveProject() {
     const projectJSON = JSON.stringify(this.project, null, 2);
@@ -330,13 +346,18 @@ const App = {
   closeContextMenu() {
     this.contextMenu.visible = false;
     this.contextMenu.showImageDialog = false;
+    this.contextMenu.showConfirmDialog = false;
     this.contextMenu.dialogImage = null;
+    this.contextMenu.targetId = null;
     this.dialogZoom = 1;
   },
   handleGlobalClick(event) {
     const dialog = document.querySelector('.image-dialog');
     const contextMenu = document.querySelector('.context-menu');
-    if (dialog && !dialog.contains(event.target) && (!contextMenu || !contextMenu.contains(event.target))) {
+    const confirmDialog = document.querySelector('.confirm-dialog');
+    if (dialog && !dialog.contains(event.target) && 
+        (!contextMenu || !contextMenu.contains(event.target)) && 
+        (!confirmDialog || !confirmDialog.contains(event.target))) {
       this.closeContextMenu();
     }
     window.addEventListener('click', this.handleGlobalClick, { once: true });
@@ -351,6 +372,8 @@ const App = {
         } else {
           image.width = Math.round((image.width / image.height) * value);
         }
+      } else if (property === 'baseOpacity') {
+        image[property] = Number(value);
       } else {
         image[property] = value;
       }
