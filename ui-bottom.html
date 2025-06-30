@@ -29,46 +29,46 @@
                         <div><label>End Opacity</label><input type="number" step="0.1" min="0" max="1" v-model.number="selectedBlock.parameters.endOpacity"></div>
                     </template>
                 </div>
-                 <div class="form-footer">
-                     <div class="checkbox-group" @change="updatePreview">
-                         <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.loop"> Loop</label>
-                         <template v-if="selectedBlock.parameters.hasOwnProperty('autoReverse')">
-                             <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.autoReverse"> Auto-Reverse</label>
-                         </template>
-                         <template v-if="selectedBlock.type === 'rotate'">
-                             <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.useCenter"> Rotate Around Center</label>
-                         </template>
-                         <template v-if="selectedBlock.type === 'zoom'">
-                             <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.useCenter"> Zoom From Center</label>
-                         </template>
-                     </div>
-                     <button class="delete-btn" @click="deleteAnimationBlock(selectedBlock.id)">Delete Block</button>
-                 </div>
+                <div class="form-footer">
+                    <div class="checkbox-group" @change="updatePreview">
+                        <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.loop"> Loop</label>
+                        <template v-if="selectedBlock.parameters.hasOwnProperty('autoReverse')">
+                            <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.autoReverse"> Auto-Reverse</label>
+                        </template>
+                        <template v-if="selectedBlock.type === 'rotate'">
+                            <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.useCenter"> Rotate Around Center</label>
+                        </template>
+                        <template v-if="selectedBlock.type === 'zoom'">
+                            <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.useCenter"> Zoom From Center</label>
+                        </template>
+                    </div>
+                    <button class="delete-btn" @click="deleteAnimationBlock(selectedBlock.id)">Delete Block</button>
+                </div>
             </div>
             <div v-else class="timeline-controls">
                 <h4>Add Animation Block</h4>
                 <div class="button-group">
-                  <button @click="addAnimationBlock('pan')" :disabled="!selectedImage">Pan</button>
-                  <button @click="addAnimationBlock('zoom')" :disabled="!selectedImage">Zoom</button>
-                  <button @click="addAnimationBlock('rotate')" :disabled="!selectedImage">Rotate</button>
-                  <button @click="addAnimationBlock('opacity')" :disabled="!selectedImage">Opacity</button>
+                    <button @click="addAnimationBlock('pan')" :disabled="!selectedImage">Pan</button>
+                    <button @click="addAnimationBlock('zoom')" :disabled="!selectedImage">Zoom</button>
+                    <button @click="addAnimationBlock('rotate')" :disabled="!selectedImage">Rotate</button>
+                    <button @click="addAnimationBlock('opacity')" :disabled="!selectedImage">Opacity</button>
                 </div>
             </div>
         </div>
     </div>
-    <div class="timeline-rows-wrapper">
+    <div class="timeline-rows-wrapper" ref="timelineWrapper" @dragover.prevent="onBlockDragOver" @drop.prevent="onBlockDrop" @dragleave.prevent="onBlockDragLeave">
         <div class="time-ruler">
             <div v-for="mark in timelineMarks.tenths" :key="'tenth-' + mark" class="ruler-line tenth" :style="{ left: mark + '%' }"></div>
             <div v-for="mark in timelineMarks.seconds" :key="'sec-' + mark.pos" class="ruler-line second" :style="{ left: mark.pos + '%' }"></div>
             <div v-for="mark in timelineMarks.seconds" :key="'label-' + mark.pos" class="ruler-label" :style="{ left: mark.pos + '%' }">{{ mark.label }}s</div>
         </div>
         <div v-if="dragPlaceholder.visible" class="drag-placeholder" :style="dragPlaceholderStyles"></div>
-        <div v-for="rowIndex in [0, 1, 2]" :key="rowIndex" class="timeline-row" :data-row-index="rowIndex">
+        <div v-for="rowIndex in [0, 1, 2]" :key="rowIndex" class="timeline-row">
             <div
                 v-for="block in getBlocksForRow(rowIndex)"
                 :key="block.id"
                 class="animation-block"
-                :class="[block.type, { 'selected': selectedBlock && selectedBlock.id === block.id }]"
+                :class="[block.type, { 'selected': selectedBlock?.id === block.id }]"
                 :style="animationBlockStyles(block)"
                 draggable="true"
                 @dragstart="onBlockDragStart($event, block)"
