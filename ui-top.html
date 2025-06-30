@@ -1,4 +1,4 @@
-<div class="panel" style="flex: 1 1 auto;">
+<div class="panel panel-main">
     <div class="control-group">
         <h3>Project</h3>
         <button @click="saveProject">Save Project</button>
@@ -35,7 +35,7 @@
         </div>
     </div>
 </div>
-<div class="panel" style="flex: 0 0 20%; min-width: 0;" @contextmenu.prevent>
+<div class="panel panel-sidebar" @contextmenu.prevent>
     <div v-if="project.images.length > 0" class="thumbnail-grid">
         <div
           v-for="(image, index) in sortedImages"
@@ -59,11 +59,11 @@
     <div v-else class="placeholder-text">
         <p>Load Project<br>or<br>Images to begin</p>
     </div>
-    <div v-if="contextMenu.visible" class="context-menu" :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }" @mouseleave="closeContextMenu">
+    <div v-if="contextMenu.visible" class="context-menu" :class="contextMenuStyles" @mouseleave="closeContextMenu">
         <div class="context-item" @click="deleteImage(contextMenu.targetId)">Delete Image</div>
     </div>
 </div>
-<div class="panel" style="flex: 0 0 60%; display: flex; align-items: center; justify-content: center;">
+<div class="panel panel-preview">
      <div v-if="isSafari" class="safari-warning">
          Note: Live preview may not display correctly in Safari. Your export will still work.
      </div>
