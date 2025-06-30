@@ -1,4 +1,4 @@
-<div class="top-section">
+<div v-scope="TopPanels($root)" class="top-section">
   <div class="panel" style="flex: 1 1 auto;">
       <div class="control-group">
           <h3>Project</h3>
@@ -11,8 +11,8 @@
           <h3>Export Animation:</h3>
           <div class="export-buttons">
               <button @click="exportSVG">SVG</button>
-              <button @click="exportVideo('mp4')" :disabled="isRendering">MP4</button>
-              <button @click="exportVideo('webp')" :disabled="isRendering">WEBP</button>
+              <button @click="exportVideo('mp4')" :disabled="$root.isRendering">MP4</button>
+              <button @click="exportVideo('webp')" :disabled="$root.isRendering">WEBP</button>
           </div>
       </div>
       <div class="control-group">
@@ -27,22 +27,22 @@
           <div class="dimensions-grid">
               <div>
                   <label>Width (px)</label>
-                  <input type="number" v-model="project.projectWidth" @input="updatePreview">
+                  <input type="number" v-model="$root.project.projectWidth" @input="$root.updatePreview">
               </div>
               <div>
                   <label>Height (px)</label>
-                  <input type="number" v-model="project.projectHeight" @input="updatePreview">
+                  <input type="number" v-model="$root.project.projectHeight" @input="$root.updatePreview">
               </div>
           </div>
       </div>
   </div>
   <div class="panel" style="flex: 0 0 20%; min-width: 0;" @contextmenu.prevent>
-      <div v-if="project.images.length > 0" class="thumbnail-grid">
+      <div v-if="$root.project.images.length > 0" class="thumbnail-grid">
           <div
-            v-for="(image, index) in sortedImages"
+            v-for="(image, index) in $root.sortedImages"
             :key="image.id"
             class="thumbnail-item"
-            :class="{ selected: image.id === project.selectedImageId, 'drag-over': dragOverItemId === image.id }"
+            :class="{ selected: image.id === $root.project.selectedImageId, 'drag-over': $root.dragOverItemId === image.id }"
             :draggable="true"
             @click="selectImage(image.id)"
             @contextmenu.prevent="openContextMenu($event, image.id)"
@@ -60,16 +60,16 @@
       <div v-else class="placeholder-text">
           <p>Load Project<br>or<br>Images to begin</p>
       </div>
-      <div v-if="contextMenu.visible" class="context-menu" :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }" @mouseleave="closeContextMenu">
-          <div class="context-item" @click="deleteImage(contextMenu.targetId)">Delete Image</div>
+      <div v-if="$root.contextMenu.visible" class="context-menu" :style="{ top: $root.contextMenu.y + 'px', left: $root.contextMenu.x + 'px' }" @mouseleave="closeContextMenu">
+          <div class="context-item" @click="deleteImage($root.contextMenu.targetId)">Delete Image</div>
       </div>
   </div>
   <div class="panel" style="flex: 0 0 60%; display: flex; align-items: center; justify-content: center;">
-       <div v-if="isSafari" class="safari-warning">
+       <div v-if="$root.isSafari" class="safari-warning">
            Note: Live preview may not display correctly in Safari. Your export will still work.
        </div>
-       <div v-if="project.images.length > 0">
-           <object type="image/svg+xml" :data="livePreviewSvgUrl" class="live-preview"></object>
+       <div v-if="$root.project.images.length > 0">
+           <object type="image/svg+xml" :data="$root.livePreviewSvgUrl" class="live-preview"></object>
        </div>
        <div v-else class="placeholder-text">
            <h2>Preview Panel</h2>
@@ -77,3 +77,142 @@
        </div>
   </div>
 </div>
+<script>
+const BACKEND_URL = 'https://swa-exporter.up.railway.app';
+function TopPanels($root) {
+  return {
+    async handleImageUpload(e) {
+      const files = e.target.files;
+      if ($root.project.images.length + files.length > 10) { alert("Error: You can upload a maximum of 10 images."); return; }
+      const readPromises = [...files].map((file, i) => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (event) => resolve({
+            id: `img_${Date.now()}_${i}`, name: file.name, base64Data: event.target.result,
+            order: $root.project.images.length + i, animationBlocks: [],
+          });
+          reader.onerror = (error) => reject(error);
+          reader.readAsDataURL(file);
+        });
+      });
+      try {
+        const newImages = await Promise.all(readPromises);
+        $root.project.images.push(...newImages);
+        if (!$root.project.selectedImageId && newImages.length > 0) {
+          $root.project.selectedImageId = newImages[0].id;
+        }
+        $root.updatePreview();
+      } catch (error) {
+        console.error("Error reading files:", error);
+        alert("There was an error loading one or more images.");
+      }
+    },
+    selectImage(id) { $root.project.selectedImageId = id; $root.selectedBlock = null; },
+    deleteImage(id) {
+      const imageToDelete = $root.project.images.find(img => img.id === id);
+      if (!imageToDelete) return;
+      const deletedOrder = imageToDelete.order;
+      $root.project.images = $root.project.images.filter(img => img.id !== id);
+      $root.project.images.forEach(img => { if (img.order > deletedOrder) img.order--; });
+      if ($root.project.selectedImageId === id) {
+        $root.project.selectedImageId = $root.project.images.length > 0 ? $root.sortedImages[0].id : null;
+      }
+      $root.updatePreview();
+    },
+    saveProject() {
+      const projectJSON = JSON.stringify($root.project, null, 2);
+      const blob = new Blob([projectJSON], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'my-animation-project.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      alert('Project saved successfully!');
+    },
+    handleProjectLoad(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const data = JSON.parse(event.target.result);
+          if (!data || !data.images || !Array.isArray(data.images) || !data.projectWidth || !data.projectHeight) {
+            alert('Invalid project file: missing images or dimensions.');
+            return;
+          }
+          $root.project = data;
+          this.selectImage(data.selectedImageId || null);
+          $root.updatePreview();
+        } catch {
+          alert('Error parsing project file.');
+        }
+      };
+      reader.readAsText(file);
+    },
+    exportSVG() {
+      const svgData = $root.getSvgString();
+      const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none'; a.href = url; a.download = 'animated-scene.svg';
+      document.body.appendChild(a); a.click();
+      URL.revokeObjectURL(url); document.body.removeChild(a);
+    },
+    async exportVideo(format) {
+      if (!BACKEND_URL) { alert('Backend URL is not configured.'); return; }
+      $root.isRendering = true;
+      try {
+        const svgData = $root.getSvgString();
+        const response = await fetch(`${BACKEND_URL}/api/render-${format}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ svg: svgData, duration: $root.timelineDuration })
+        });
+        if (!response.ok) { throw new Error(`Server responded with status: ${response.status} ${await response.text()}`); }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none'; a.href = url; a.download = `animation.${format}`;
+        document.body.appendChild(a); a.click();
+        URL.revokeObjectURL(url); document.body.removeChild(a);
+      } catch (error) {
+        console.error('Export failed:', error);
+        alert(`Export failed: ${error.message}`);
+      } finally {
+        $root.isRendering = false;
+      }
+    },
+    onDragStart(id) { $root.draggedItemId = id; },
+    onDragOver(id) { $root.dragOverItemId = id; },
+    onDragLeave() { $root.dragOverItemId = null; },
+    onDrop(targetId) {
+      if (!$root.draggedItemId || $root.draggedItemId === targetId) {
+        $root.draggedItemId = null; $root.dragOverItemId = null; return;
+      }
+      const draggedImage = $root.project.images.find(p => p.id === $root.draggedItemId);
+      const targetImage = $root.project.images.find(p => p.id === targetId);
+      if (draggedImage && targetImage) {
+        const fromOrder = draggedImage.order;
+        const toOrder = targetImage.order;
+        $root.project.images.forEach(img => {
+          if (img.id === draggedImage.id) {
+            img.order = toOrder;
+          } else if (fromOrder < toOrder && img.order > fromOrder && img.order <= toOrder) {
+            img.order--;
+          } else if (fromOrder > toOrder && img.order < fromOrder && img.order >= toOrder) {
+            img.order++;
+          }
+        });
+      }
+      $root.draggedItemId = null; $root.dragOverItemId = null;
+      $root.updatePreview();
+    },
+    openContextMenu(event, imageId) {
+      $root.contextMenu.targetId = imageId; $root.contextMenu.x = event.clientX; $root.contextMenu.y = event.clientY;
+      $root.contextMenu.visible = true;
+      window.addEventListener('click', this.closeContextMenu, { once: true });
+    },
+    closeContextMenu() { $root.contextMenu.visible = false; }
+  }
+}
+</script>
