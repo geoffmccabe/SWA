@@ -47,9 +47,6 @@ const App = {
     if (!this.project.selectedImageId) return null;
     return this.project.images.find(img => img.id === this.project.selectedImageId);
   },
-  get isSafari() {
-    return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-  },
   get timelineMarks() {
     const seconds = [];
     const tenths = [];
@@ -68,11 +65,11 @@ const App = {
       left: `${this.contextMenu.x}px`
     };
   },
-  get animationBlockStyles() {
-    return (block) => ({
+  animationBlockStyles(block) {
+    return {
       left: `${(block.startTime / this.timelineDuration) * 100}%`,
       width: `${(block.duration / this.timelineDuration) * 100}%`
-    });
+    };
   },
   get dragPlaceholderStyles() {
     return {
@@ -411,9 +408,10 @@ async function init() {
   ]);
   
   document.getElementById('app').innerHTML = `
-    <div v-scope="App">
-      ${topUI}
-      ${bottomUI}
+    <div class="app-container">
+      <div class="top-section">${topUI}</div>
+      <div class="bottom-section">${bottomUI}</div>
+      <div v-if="isRendering" class="loading-overlay">Rendering...</div>
     </div>
   `;
   
