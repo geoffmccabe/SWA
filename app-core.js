@@ -15,6 +15,9 @@ async function loadComponent(path) {
 }
 
 const App = {
+  $refs: {
+    timelineWrapper: null
+  },
   project: {
     projectWidth: 600,
     projectHeight: 600,
@@ -31,14 +34,6 @@ const App = {
   contextMenu: { visible: false, x: 0, y: 0, targetId: null },
   livePreviewSvgUrl: '',
   dragPlaceholder: { visible: false, left: '0px', width: '0px', top: '0px', height: '0px' },
-  contextMenuX: 0,
-  contextMenuY: 0,
-  blockStartTime: 0,
-  blockDuration: 0,
-  placeholderLeft: 0,
-  placeholderWidth: 0,
-  placeholderTop: 0,
-  placeholderHeight: 0,
 
   get sortedImages() {
     return [...this.project.images].sort((a, b) => a.order - b.order);
@@ -284,17 +279,15 @@ const App = {
   },
   closeContextMenu() { this.contextMenu.visible = false; },
   getBlocksForRow(rowIndex) {
-    const allBlocks = this.project.images.flatMap(img =>
-      img.animationBlocks.map(b => ({...b, imageId: img.id}))
-    );
-    return allBlocks.filter(b => b.rowIndex === rowIndex);
+    if (!this.selectedImage) return [];
+    return this.selectedImage.animationBlocks.filter(b => b.rowIndex === rowIndex);
   },
   getImageForBlock(block) {
     return this.project.images.find(img => img.id === block.imageId);
   },
   addAnimationBlock(type) {
     if (!this.selectedImage) return;
-    const allBlocks = this.project.images.flatMap(img => img.animationBlocks);
+    const allBlocks = this.selectedImage.animationBlocks;
     let targetRow = 0;
     for (let i = 0; i < 3; i++) {
       const blocksOnRow = allBlocks.filter(b => b.rowIndex === i);
@@ -311,8 +304,13 @@ const App = {
       opacity: { startOpacity: 1, endOpacity: 0, autoReverse: true },
     };
     const newBlock = {
-      id: `anim_${Date.now()}`, type, startTime: 0, duration: 2, loop: true,
+      id: `anim_${Date.now()}`,
+      type,
+      startTime: 0,
+      duration: 2,
+      loop: true,
       rowIndex: targetRow,
+      imageId: this.selectedImage.id,
       parameters: defaultParams[type],
     };
     this.selectedImage.animationBlocks.push(newBlock);
@@ -337,67 +335,79 @@ const App = {
     }
   },
   onBlockDragStart(event, block) {
-    const rect = event.target.getBoundingClientRect();
+    event.dataTransfer.setData('text/plain', block.id);
     this.draggedBlockInfo = {
       block: block,
-      offset: event.clientX - rect.left,
+      offset: event.clientX - event.target.getBoundingClientRect().left
     };
-    event.dataTransfer.setData('text/plain', block.id);
     event.dataTransfer.effectAllowed = 'move';
   },
   onBlockDragOver(event) {
-    if (!this.draggedBlockInfo) return;
     event.preventDefault();
+    if (!this.draggedBlockInfo || !this.$refs.timelineWrapper) return;
+    
     const timelineRect = this.$refs.timelineWrapper.getBoundingClientRect();
     const rowHeight = timelineRect.height / 3;
     const dropX = event.clientX - timelineRect.left - this.draggedBlockInfo.offset;
     const dropY = event.clientY - timelineRect.top;
+    
     const rawTime = (dropX / timelineRect.width) * this.timelineDuration;
-    const snappedTime = Math.max(0, Math.round(rawTime * 10) / 10);
-    const targetRowIndex = Math.min(2, Math.floor(dropY / rowHeight));
-    this.dragPlaceholder.visible = true;
-    this.dragPlaceholder.left = `${(snappedTime / this.timelineDuration) * 100}%`;
-    this.dragPlaceholder.width = `${(this.draggedBlockInfo.block.duration / this.timelineDuration) * 100}%`;
-    this.dragPlaceholder.top = `${targetRowIndex * rowHeight + 1}px`;
-    this.dragPlaceholder.height = `${rowHeight - 2}px`;
+    const snappedTime = Math.max(0, Math.min(this.timelineDuration - 0.1, Math.round(rawTime * 10) / 10));
+    const targetRowIndex = Math.min(2, Math.max(0, Math.floor(dropY / rowHeight)));
+    
+    this.dragPlaceholder = {
+      visible: true,
+      left: `${(snappedTime / this.timelineDuration) * 100}%`,
+      width: `${(this.draggedBlockInfo.block.duration / this.timelineDuration) * 100}%`,
+      top: `${targetRowIndex * rowHeight}px`,
+      height: `${rowHeight}px`
+    };
   },
   onBlockDragLeave(event) {
+    if (!this.draggedBlockInfo || !this.$refs.timelineWrapper) return;
     const timelineRect = this.$refs.timelineWrapper.getBoundingClientRect();
-    if (event.clientX <= timelineRect.left || event.clientX >= timelineRect.right || event.clientY <= timelineRect.top || event.clientY >= timelineRect.bottom) {
+    if (event.clientX <= timelineRect.left || event.clientX >= timelineRect.right || 
+        event.clientY <= timelineRect.top || event.clientY >= timelineRect.bottom) {
       this.dragPlaceholder.visible = false;
     }
   },
   onBlockDrop(event) {
-    if (!this.draggedBlockInfo) return;
-    this.dragPlaceholder.visible = false;
-    const draggedBlock = this.draggedBlockInfo.block;
+    event.preventDefault();
+    if (!this.draggedBlockInfo || !this.$refs.timelineWrapper) return;
+    
     const timelineRect = this.$refs.timelineWrapper.getBoundingClientRect();
     const rowHeight = timelineRect.height / 3;
     const dropX = event.clientX - timelineRect.left - this.draggedBlockInfo.offset;
     const dropY = event.clientY - timelineRect.top;
+    
     const rawTime = (dropX / timelineRect.width) * this.timelineDuration;
-    const snappedTime = Math.max(0, Math.round(rawTime * 10) / 10);
-    const targetRowIndex = Math.min(2, Math.floor(dropY / rowHeight));
-    const allBlocksOnTargetRow = this.project.images.flatMap(img => img.animationBlocks).filter(b => b.rowIndex === targetRowIndex);
-    const hasOverlap = allBlocksOnTargetRow.some(b =>
-      b.id !== draggedBlock.id &&
-      (snappedTime < b.startTime + b.duration) &&
-      (snappedTime + draggedBlock.duration > b.startTime)
-    );
-    if (hasOverlap) {
-      this.overlapError = true;
-      setTimeout(() => this.overlapError = false, 2000);
-    } else {
-      const imageOfBlock = this.getImageForBlock(draggedBlock);
-      const blockToUpdate = imageOfBlock.animationBlocks.find(b => b.id === draggedBlock.id);
+    const snappedTime = Math.max(0, Math.min(this.timelineDuration - 0.1, Math.round(rawTime * 10) / 10));
+    const targetRowIndex = Math.min(2, Math.max(0, Math.floor(dropY / rowHeight)));
+    
+    const block = this.draggedBlockInfo.block;
+    const image = this.getImageForBlock(block);
+    if (image) {
+      const blockToUpdate = image.animationBlocks.find(b => b.id === block.id);
       if (blockToUpdate) {
-        blockToUpdate.startTime = snappedTime;
-        blockToUpdate.rowIndex = targetRowIndex;
-        this.selectBlock(blockToUpdate);
-        this.updatePreview();
+        const blocksOnRow = image.animationBlocks.filter(b => b.rowIndex === targetRowIndex && b.id !== block.id);
+        const hasOverlap = blocksOnRow.some(b => 
+          (snappedTime < b.startTime + b.duration) && 
+          (snappedTime + block.duration > b.startTime)
+        );
+        if (hasOverlap) {
+          this.overlapError = true;
+          setTimeout(() => this.overlapError = false, 2000);
+        } else {
+          blockToUpdate.startTime = snappedTime;
+          blockToUpdate.rowIndex = targetRowIndex;
+          this.selectBlock(blockToUpdate);
+          this.updatePreview();
+        }
       }
     }
+    
     this.draggedBlockInfo = null;
+    this.dragPlaceholder.visible = false;
   }
 };
 
