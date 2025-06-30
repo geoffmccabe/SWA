@@ -388,8 +388,8 @@
           async mounted() {
             try {
               const [topResponse, bottomResponse] = await Promise.all([
-                fetch('top-panels.html'),
-                fetch('bottom-panels.html')
+                fetch('./top-panels.html'),
+                fetch('./bottom-panels.html')
               ]);
               if (!topResponse.ok || !bottomResponse.ok) {
                 throw new Error('Failed to load panel HTML');
