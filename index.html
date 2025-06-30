@@ -1,14 +1,17 @@
+<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://unpkg.com; script-src 'self' https://unpkg.com 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://swa-exporter.up.railway.app">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://unpkg.com; script-src 'self' https://unpkg.com 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://swa-exporter.up.railway.app">
   <title>WebP Animation Editor</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="styles.css">
-  <script src="https://unpkg.com/petite-vue"></script>
-  <script src="app-core.js"></script>
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <div class="loading">Loading editor...</div>
+  </div>
+  <script src="https://unpkg.com/petite-vue"></script>
+  <script src="app-core.js"></script>
 </body>
 </html>
