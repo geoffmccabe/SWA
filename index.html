@@ -90,13 +90,13 @@
         flex-direction: column;
         gap: 4px;
         padding: 5px;
-        border: 1px solid transparent; /* FIX: Changed to 1px to prevent layout shift */
+        border: 1px solid transparent;
         border-radius: 5px;
         cursor: pointer;
         background-color: var(--color-surface-light);
         min-width: 0;
       }
-      .thumbnail-item.selected { border-color: var(--color-button-grey); } /* FIX: Use button color, 1px width inherited */
+      .thumbnail-item.selected { border-color: var(--color-button-grey); }
       .thumbnail-item.drag-over { border: 2px dashed var(--color-primary); }
       .thumbnail-image-container {
         width: 100%;
@@ -142,16 +142,16 @@
       .timeline-container { display: flex; flex-direction: column; height: 100%; }
       .timeline-header {
         display: flex;
-        align-items: stretch; /* FIX: Align items to fill height */
+        align-items: stretch;
         gap: 15px;
-        margin-bottom: 30px; /* FIX: Increased gap for ruler labels */
+        margin-bottom: 10px; /* FIX: Spacing between header and timeline rows */
         padding: 10px;
         background-color: var(--color-surface);
         border-radius: 8px;
       }
       .timeline-header-thumb {
-        height: 66px; /* FIX: Set explicit size */
-        width: 66px; /* FIX: Set explicit size */
+        height: 66px;
+        width: 66px;
         flex-shrink: 0;
         padding: 6px;
         border: 1px solid var(--color-border);
@@ -163,11 +163,15 @@
         font-size: 12px;
         color: #999;
       }
+      /* FIX: Using ::before for placeholder text */
+      .timeline-header-thumb:empty::before {
+          content: "Select Image Above";
+      }
       .timeline-header-thumb img { width: 100%; height: 100%; object-fit: contain; }
       .timeline-controls-wrapper { flex-grow: 1; min-width: 0; }
       .timeline-controls, .edit-form {
-        padding: 0; /* FIX: Remove padding as it's now on the parent */
-        background-color: transparent; /* FIX: Remove background as it's on parent */
+        padding: 0;
+        background-color: transparent;
         height: 100%;
         display: flex;
         flex-direction: column;
@@ -184,7 +188,11 @@
         margin-bottom: 0;
       }
 
-      .timeline-rows-wrapper { flex-grow: 1; position: relative; }
+      .timeline-rows-wrapper {
+        flex-grow: 1;
+        position: relative;
+        margin-top: 20px; /* FIX: Added space for ruler labels */
+      }
       .timeline-row { position: relative; height: 33.33%; border-top: 1px solid var(--color-border); }
       .timeline-row:first-child { border-top: none; }
       .time-ruler {
@@ -227,7 +235,7 @@
       .animation-block.zoom { background-color: var(--color-zoom); }
       .animation-block.rotate { background-color: var(--color-rotate); }
       .animation-block.opacity { background-color: var(--color-opacity); }
-      .drag-placeholder { /* FIX: New style for D&D placeholder */
+      .drag-placeholder {
         position: absolute;
         height: calc(100% - 4px);
         top: 2px;
@@ -357,12 +365,10 @@
 
             <div class="bottom-section">
                 <div class="timeline-container">
-                    <!-- FIX: Header structure changed to contain thumb inside the grey box -->
                     <div class="timeline-header">
                         <div class="timeline-header-thumb">
                             <img v-if="selectedImage" :src="selectedImage.base64Data">
-                            <!-- FIX: Added placeholder for when no image is selected -->
-                            <span v-else>Select Image Above</span>
+                            <!-- FIX: Placeholder now handled by CSS :empty::before -->
                         </div>
                         <div class="timeline-controls-wrapper">
                             <div v-if="selectedImage && selectedBlock" class="edit-form">
@@ -375,7 +381,6 @@
                                         <div><label>Direction</label><select v-model="selectedBlock.parameters.direction"><option>left</option><option>right</option><option>up</option><option>down</option></select></div>
                                         <div><label>Distance (px)</label><input type="number" v-model.number="selectedBlock.parameters.distance"></div>
                                     </template>
-                                    <!-- FIX: Added center controls to zoom -->
                                     <template v-if="selectedBlock.type === 'zoom'">
                                         <div><label>Start Scale</label><input type="number" step="0.1" v-model.number="selectedBlock.parameters.startScale"></div>
                                         <div><label>End Scale</label><input type="number" step="0.1" v-model.number="selectedBlock.parameters.endScale"></div>
@@ -401,7 +406,6 @@
                                          <template v-if="selectedBlock.type === 'rotate'">
                                              <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.useCenter"> Rotate Around Center</label>
                                          </template>
-                                         <!-- FIX: Added zoom center checkbox -->
                                          <template v-if="selectedBlock.type === 'zoom'">
                                              <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.useCenter"> Zoom From Center</label>
                                          </template>
@@ -427,7 +431,6 @@
                             <div v-for="mark in timelineMarks.seconds" :key="'sec-' + mark.pos" class="ruler-line second" :style="{ left: mark.pos + '%' }"></div>
                             <div v-for="mark in timelineMarks.seconds" :key="'label-' + mark.pos" class="ruler-label" :style="{ left: mark.pos + '%' }">{{ mark.label }}s</div>
                         </div>
-                        <!-- FIX: Added drag placeholder element -->
                         <div v-if="dragPlaceholder.visible" class="drag-placeholder" :style="{ left: dragPlaceholder.left, width: dragPlaceholder.width, top: dragPlaceholder.top }"></div>
                         <div v-for="rowIndex in [0, 1, 2]" :key="rowIndex" class="timeline-row" :data-row-index="rowIndex">
                             <div
@@ -478,7 +481,6 @@
           dragOverItemId: null,
           contextMenu: { visible: false, x: 0, y: 0, targetId: null },
           livePreviewSvgUrl: '',
-          // FIX: New state for drag placeholder
           dragPlaceholder: { visible: false, left: '0px', width: '0px', top: '0px' },
 
           // --- COMPUTED ---
@@ -507,17 +509,21 @@
 
           // --- METHODS ---
           updatePreview() {
-              if (this.project.images.length === 0) {
-                  if (this.livePreviewSvgUrl) {
-                      URL.revokeObjectURL(this.livePreviewSvgUrl);
-                      this.livePreviewSvgUrl = '';
-                  }
-                  return;
-              }
-              const svgContent = this.getSvgString();
-              const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-              if (this.livePreviewSvgUrl) { URL.revokeObjectURL(this.livePreviewSvgUrl); }
-              this.livePreviewSvgUrl = URL.createObjectURL(blob);
+              // Debounce preview update to avoid excessive rendering on fast input changes
+              if (this.previewDebounce) clearTimeout(this.previewDebounce);
+              this.previewDebounce = setTimeout(() => {
+                if (this.project.images.length === 0) {
+                    if (this.livePreviewSvgUrl) {
+                        URL.revokeObjectURL(this.livePreviewSvgUrl);
+                        this.livePreviewSvgUrl = '';
+                    }
+                    return;
+                }
+                const svgContent = this.getSvgString();
+                const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+                if (this.livePreviewSvgUrl) { URL.revokeObjectURL(this.livePreviewSvgUrl); }
+                this.livePreviewSvgUrl = URL.createObjectURL(blob);
+              }, 50);
           },
           getSvgString() {
               const { projectWidth, projectHeight, images } = this.project;
@@ -531,38 +537,31 @@
                   const animationElements = image.animationBlocks.map(block => {
                       const repeatCount = block.loop ? 'indefinite' : '1';
                       let animations = '';
+                      const blockStartTime = block.startTime;
+                      const blockDuration = block.duration;
+
+                      // This function creates the combined transform for scale and translate
+                      const createZoomTransform = (scale, cx, cy) => {
+                          const tx = cx * (1 - scale);
+                          const ty = cy * (1 - scale);
+                          return `translate(${tx} ${ty}) scale(${scale})`;
+                      };
+
                       switch (block.type) {
                           case 'pan': {
                               const { direction, distance, autoReverse } = block.parameters;
                               const pans = { right: `${distance} 0`, left: `${-distance} 0`, up: `0 ${-distance}`, down: `0 ${distance}` };
                               const to = pans[direction];
-                              if (autoReverse) {
-                                  animations += `<animateTransform attributeName="transform" type="translate" values="0 0; ${to}; 0 0" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                              } else {
-                                  animations += `<animateTransform attributeName="transform" type="translate" from="0 0" to="${to}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                              }
+                              animations += `<animateTransform attributeName="transform" type="translate" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="0 0; ${to}; 0 0" keyTimes="0; 0.5; 1"` : `from="0 0" to="${to}"`} />`;
                               break;
                           }
                           case 'zoom': {
                               const { startScale, endScale, autoReverse, useCenter, zoomX, zoomY } = block.parameters;
                               const cx = useCenter ? canvasCenterX : zoomX;
                               const cy = useCenter ? canvasCenterY : zoomY;
-
-                              if (autoReverse) {
-                                  animations += `<animateTransform attributeName="transform" type="scale" values="${startScale}; ${endScale}; ${startScale}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                                  if (useCenter) {
-                                      const fromTx = cx * (1 - startScale); const fromTy = cy * (1 - startScale);
-                                      const toTx = cx * (1 - endScale); const toTy = cy * (1 - endScale);
-                                      animations += `<animateTransform attributeName="transform" type="translate" values="${fromTx} ${fromTy}; ${toTx} ${toTy}; ${fromTx} ${fromTy}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                                  }
-                              } else {
-                                  animations += `<animateTransform attributeName="transform" type="scale" from="${startScale}" to="${endScale}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                                  if (useCenter) {
-                                      const fromTx = cx * (1 - startScale); const fromTy = cy * (1 - startScale);
-                                      const toTx = cx * (1 - endScale); const toTy = cy * (1 - endScale);
-                                      animations += `<animateTransform attributeName="transform" type="translate" from="${fromTx} ${fromTy}" to="${toTx} ${toTy}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                                  }
-                              }
+                              const fromTransform = createZoomTransform(startScale, cx, cy);
+                              const toTransform = createZoomTransform(endScale, cx, cy);
+                              animations += `<animateTransform attributeName="transform" type="scale" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${fromTransform}; ${toTransform}; ${fromTransform}" keyTimes="0; 0.5; 1"` : `from="${fromTransform}" to="${toTransform}"`} />`;
                               break;
                           }
                           case 'rotate': {
@@ -571,29 +570,21 @@
                               const cy = useCenter ? canvasCenterY : rotateY;
                               const from = `0 ${cx} ${cy}`;
                               const to = `${degrees} ${cx} ${cy}`;
-                              if (autoReverse) {
-                                  animations += `<animateTransform attributeName="transform" type="rotate" values="${from}; ${to}; ${from}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                              } else {
-                                  animations += `<animateTransform attributeName="transform" type="rotate" from="${from}" to="${to}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" additive="sum" />`;
-                              }
+                              animations += `<animateTransform attributeName="transform" type="rotate" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${from}; ${to}; ${from}" keyTimes="0; 0.5; 1"` : `from="${from}" to="${to}"`} />`;
                               break;
                           }
                           case 'opacity': {
                               const { startOpacity, endOpacity, autoReverse } = block.parameters;
-                              if(autoReverse) {
-                                  animations += `<animate attributeName="opacity" values="${startOpacity}; ${endOpacity}; ${startOpacity}" keyTimes="0; 0.5; 1" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
-                              } else {
-                                  animations += `<animate attributeName="opacity" from="${startOpacity}" to="${endOpacity}" begin="${block.startTime}s" dur="${block.duration}s" repeatCount="${repeatCount}" fill="freeze" />`;
-                              }
+                              animations += `<animate attributeName="opacity" fill="freeze" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${startOpacity}; ${endOpacity}; ${startOpacity}" keyTimes="0; 0.5; 1"` : `from="${startOpacity}" to="${endOpacity}"`} />`;
                               break;
                           }
                       }
                       return animations;
                   }).join('');
-                  return `<g>${animationElements}<image href="${image.base64Data}" width="${projectWidth}" height="${projectHeight}" x="0" y="0" /></g>`;
+                  return `<g transform="">${animationElements}<image href="${image.base64Data}" width="${projectWidth}" height="${projectHeight}" x="0" y="0" /></g>`;
               }).join('');
 
-              return `<svg width="${projectWidth}" height="${projectHeight}" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${projectWidth}" height="${projectHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
+              return `<svg width="${projectWidth}" height="${projectHeight}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${projectWidth}" height="${projectHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
           },
           getBlocksForRow(rowIndex) {
               const rows = [[], [], []];
@@ -614,9 +605,6 @@
                       }
                   }
                   if (!placed) {
-                      // This part should ideally not be reached if there are enough rows.
-                      // If it is, it means more than 3 animations overlap.
-                      // We can push to the first row to ensure it's displayed, but it will visually overlap.
                       rows[0].push(block);
                   }
               }
@@ -679,7 +667,6 @@
             reader.onload = (event) => {
                 try {
                     const data = JSON.parse(event.target.result);
-                    // Basic validation
                     if (data && data.images && Array.isArray(data.images)) {
                         this.project = data;
                         this.selectImage(data.selectedImageId || null);
@@ -735,19 +722,18 @@
               const targetImage = this.project.images.find(p => p.id === targetId);
 
               if (draggedImage && targetImage) {
-                  const draggedOrder = draggedImage.order;
-                  draggedImage.order = targetImage.order;
-                  // Adjust orders of other images
+                  const fromOrder = draggedImage.order;
+                  const toOrder = targetImage.order;
+                  
                   this.project.images.forEach(img => {
-                    if (img.id !== draggedImage.id && img.id !== targetImage.id) {
-                      if (draggedOrder < targetImage.order && img.order > draggedOrder && img.order <= targetImage.order) {
+                    if (img.id === draggedImage.id) {
+                        img.order = toOrder;
+                    } else if (fromOrder < toOrder && img.order > fromOrder && img.order <= toOrder) {
                         img.order--;
-                      } else if (draggedOrder > targetImage.order && img.order < draggedOrder && img.order >= targetImage.order) {
+                    } else if (fromOrder > toOrder && img.order < fromOrder && img.order >= toOrder) {
                         img.order++;
-                      }
                     }
                   });
-                  targetImage.order = draggedOrder;
               }
               this.draggedItemId = null; this.dragOverItemId = null;
               this.updatePreview();
@@ -814,7 +800,6 @@
               this.dragPlaceholder.top = `${targetRowIndex * rowHeight}px`;
           },
           onBlockDragLeave(event) {
-            // Hide placeholder only if cursor leaves the timeline area
             const timelineRect = this.$refs.timelineWrapper.getBoundingClientRect();
             if (event.clientX <= timelineRect.left || event.clientX >= timelineRect.right || event.clientY <= timelineRect.top || event.clientY >= timelineRect.bottom) {
               this.dragPlaceholder.visible = false;
@@ -822,20 +807,18 @@
           },
           onBlockDrop(event) {
               if (!this.draggedBlockInfo) return;
-              this.dragPlaceholder.visible = false; // Hide placeholder on drop
+              this.dragPlaceholder.visible = false;
 
               const draggedBlock = this.draggedBlockInfo.block;
               const timelineRect = this.$refs.timelineWrapper.getBoundingClientRect();
               const rowHeight = timelineRect.height / 3;
 
-              // Calculate drop position
               const dropX = event.clientX - timelineRect.left - this.draggedBlockInfo.offset;
               const dropY = event.clientY - timelineRect.top;
               const rawTime = (dropX / timelineRect.width) * this.timelineDuration;
               const snappedTime = Math.max(0, Math.round(rawTime * 10) / 10);
               const targetRowIndex = Math.min(2, Math.floor(dropY / rowHeight));
 
-              // Check for overlap on the target row only
               const targetRowBlocks = this.getBlocksForRow(targetRowIndex);
               const hasOverlap = targetRowBlocks.some(b =>
                   b.id !== draggedBlock.id &&
@@ -847,12 +830,11 @@
                   this.overlapError = true;
                   setTimeout(() => this.overlapError = false, 2000);
               } else {
-                  // Find the actual block in the project data to modify it
                   const imageOfBlock = this.getImageForBlock(draggedBlock);
                   const blockToUpdate = imageOfBlock.animationBlocks.find(b => b.id === draggedBlock.id);
                   if (blockToUpdate) {
                       blockToUpdate.startTime = snappedTime;
-                      this.selectBlock(blockToUpdate); // Re-select block to update form
+                      this.selectBlock(blockToUpdate);
                       this.updatePreview();
                   }
               }
