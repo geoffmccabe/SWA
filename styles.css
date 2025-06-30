@@ -318,6 +318,7 @@ input, select {
   top: 0; 
   bottom: 0; 
   width: 1px; 
+  z-index: 0;
 }
 .ruler-line.second { 
   background-color: #333; 
@@ -331,6 +332,7 @@ input, select {
     font-size: 10px;
     color: #999;
     transform: translateX(-50%);
+    z-index: 1;
 }
 .animation-block {
   height: calc(100% - 4px);
@@ -345,10 +347,32 @@ input, select {
   cursor: pointer;
   overflow: hidden;
   white-space: nowrap;
-  border: 1px solid rgba(255,255,255,0.3);
+  border: 1px solid rgba(255,255,255,1);
   z-index: 2;
   padding: 1px;
   box-sizing: border-box;
+  background-color: transparent;
+}
+.animation-block::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+}
+.animation-block.pan::before { 
+  background-color: var(--color-pan); 
+}
+.animation-block.zoom::before { 
+  background-color: var(--color-zoom); 
+}
+.animation-block.rotate::before { 
+  background-color: var(--color-rotate); 
+}
+.animation-block.opacity::before { 
+  background-color: var(--color-opacity); 
 }
 .block-thumbnail {
   height: 100%;
@@ -363,18 +387,6 @@ input, select {
   border-width: 2px; 
   border-color: white; 
   z-index: 10; 
-}
-.animation-block.pan { 
-  background-color: var(--color-pan); 
-}
-.animation-block.zoom { 
-  background-color: var(--color-zoom); 
-}
-.animation-block.rotate { 
-  background-color: var(--color-rotate); 
-}
-.animation-block.opacity { 
-  background-color: var(--color-opacity); 
 }
 .drag-placeholder {
   position: absolute;
