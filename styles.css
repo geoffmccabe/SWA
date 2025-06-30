@@ -296,10 +296,10 @@ input, select {
   margin-top: 20px;
 }
 .timeline-row { 
-  height: calc(33.33% - 2px); 
-  min-height: 40px; 
-  border-top: 1px solid var(--color-border); 
-  overflow: visible; 
+  height: 33.33%;
+  min-height: 40px;
+  position: relative;
+  border-top: 1px solid var(--color-border);
 }
 .timeline-row:first-child { 
   border-top: none; 
@@ -333,7 +333,6 @@ input, select {
     transform: translateX(-50%);
 }
 .animation-block {
-  position: absolute;
   height: calc(100% - 4px);
   min-height: 30px;
   top: 2px;
