@@ -117,6 +117,29 @@ input, select {
   border-radius: 4px; 
   margin-bottom: 10px;
 }
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--color-button-grey);
+  height: 8px;
+  border-radius: 4px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--color-text);
+  border-radius: 50%;
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--color-text);
+  border-radius: 50%;
+  cursor: pointer;
+}
 .control-group { 
   padding-top: 15px; 
   border-top: 1px solid var(--color-border); 
@@ -199,9 +222,9 @@ input, select {
   position: absolute;
   top: 5px;
   right: 5px;
-  width: 10%;
+  width: calc(10% * 0.2); /* 10% of panel-sidebar width (20% of viewport) */
   aspect-ratio: 1 / 1;
-  background-color: black;
+  background-color: var(--color-button-grey);
   color: white;
   font-size: 12px;
   display: flex;
@@ -212,7 +235,7 @@ input, select {
   cursor: pointer;
 }
 .thumbnail-plus:hover {
-  background-color: #333;
+  background-color: #666666;
 }
 .thumbnail-item span {
   font-size: 6px;
@@ -224,7 +247,7 @@ input, select {
 }
 .context-menu {
   position: fixed;
-  background-color: #444;
+  background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 5px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.5);
@@ -240,7 +263,7 @@ input, select {
   cursor: pointer; 
 }
 .context-item:hover { 
-  background-color: #777777; 
+  background-color: var(--color-button-grey); 
 }
 .image-dialog {
   position: fixed;
@@ -274,19 +297,26 @@ input, select {
   position: absolute;
   top: 0;
   right: 0;
-  background: none;
-  border: none;
-  color: var(--color-text);
+  width: 24px;
+  height: 24px;
+  background-color: var(--color-button-grey);
+  color: white;
   font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 3px;
   cursor: pointer;
 }
 .dialog-close:hover {
-  color: var(--color-primary);
+  background-color: #666666;
 }
 .image-dialog-divider {
   border: 0;
   border-top: 1px solid var(--color-border);
   margin: 10px 0;
+  width: 100%;
 }
 .image-dialog-image {
   flex-grow: 1;
@@ -297,7 +327,7 @@ input, select {
 }
 .image-dialog-image img {
   max-width: 100%;
-  max-height: 60vh;
+  max-height: calc(80vh - 150px); /* Adjust for header and controls */
   object-fit: contain;
 }
 .image-dialog-controls {
@@ -311,6 +341,33 @@ input, select {
 .image-dialog-controls button {
   width: auto;
   margin-bottom: 0;
+}
+.confirm-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  z-index: 3000;
+  padding: 20px;
+  width: 200px;
+}
+.confirm-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: center;
+}
+.confirm-dialog-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.confirm-dialog-buttons button {
+  width: auto;
 }
 .live-preview { 
   max-width: 100%; 
