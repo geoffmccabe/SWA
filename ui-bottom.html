@@ -4,7 +4,7 @@
             <img v-if="selectedImage" :src="selectedImage.base64Data">
         </div>
         <div class="timeline-controls-wrapper">
-            <div v-if="selectedImage && selectedBlock" class="edit-form">
+            <div v-if="selectedImage && selectedBlock && selectedBlock.type" class="edit-form">
                 <h4>Edit {{ selectedBlock.type }} Animation</h4>
                 <div class="form-grid" @input="updatePreview">
                     <div><label>Start Time (s)</label><input type="number" v-model.number="selectedBlock.startTime" min="0" step="0.1"></div>
@@ -32,7 +32,7 @@
                 <div class="form-footer">
                     <div class="checkbox-group" @change="updatePreview">
                         <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.loop"> Loop</label>
-                        <template v-if="selectedBlock.parameters.hasOwnProperty('autoReverse')">
+                        <template v-if="selectedBlock.parameters && selectedBlock.parameters.hasOwnProperty('autoReverse')">
                             <label class="loop-toggle"><input type="checkbox" v-model="selectedBlock.parameters.autoReverse"> Auto-Reverse</label>
                         </template>
                         <template v-if="selectedBlock.type === 'rotate'">
