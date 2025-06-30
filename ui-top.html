@@ -36,7 +36,7 @@
     </div>
 </div>
 <div class="panel panel-sidebar" @contextmenu.prevent>
-    <div v-if="project.icons.length > 0" class="thumbnail-grid">
+    <div v-if="project.images.length > 0" class="thumbnail-grid">
         <div
           v-for="(image, index) in sortedImages"
           :key="image.id"
@@ -59,12 +59,12 @@
     <div v-else class="placeholder-text">
         <p>Load Project<br>or<br>Images to begin</p>
     </div>
-    <div v-if="contextMenu.visible" class="context-menu" :class="contextMenuStyles" @mouseleave="closeContextMenu">
+    <div v-if="contextMenu.visible" class="context-menu" :style="contextMenuStyles" @mouseleave="closeContextMenu">
         <div class="context-item" @click="deleteImage(contextMenu.targetId)">Delete Image</div>
     </div>
 </div>
 <div class="panel panel-preview">
-     <div v-if="project.icons.length > 0">
+     <div v-if="project.images.length > 0">
          <object type="image/svg+xml" :data="livePreviewSvgUrl" class="live-preview"></object>
      </div>
      <div v-else class="placeholder-text">
