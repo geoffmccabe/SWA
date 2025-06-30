@@ -290,3 +290,11 @@ input, select {
   font-size: 20px;
   z-index: 2000;
 }
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: var(--color-text);
+  font-size: 20px;
+}
