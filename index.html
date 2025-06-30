@@ -2,14 +2,10 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://unpkg.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://unpkg.com; script-src 'self' https://unpkg.com 'unsafe-inline'">
   <title>WebP Animation Editor</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://unpkg.com/petite-vue"></script>
-  <script>
-    // Force correct path resolution on Railway
-    const BASE_URL = location.href.includes('railway') ? '/' : '';
-  </script>
   <script src="app-core.js"></script>
 </head>
 <body>
