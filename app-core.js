@@ -1,5 +1,6 @@
 const { createApp } = PetiteVue;
 const BACKEND_URL = 'https://swa-exporter.up.railway.app';
+const BASE_URL = window.location.href.includes('railway') ? '/' : '';
 
 async function loadComponent(path) {
   const fullPath = `${BASE_URL}${path}?v=${Date.now()}`;
