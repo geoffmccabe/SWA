@@ -106,9 +106,12 @@ const App = {
     const previewHeight = 600;
     const scaleX = previewWidth / projectWidth;
     const scaleY = previewHeight / projectHeight;
-    const canvasCenterX = previewWidth / 2;
-    const canvasCenterY = previewHeight / 2;
     const imageElements = imagesToRender.map(image => {
+      const imageScale = Math.min(scaleX, scaleY);
+      const scaledWidth = image.width * imageScale;
+      const scaledHeight = image.height * imageScale;
+      const canvasCenterX = previewWidth / 2;
+      const canvasCenterY = previewHeight / 2;
       const animationElements = image.animationBlocks.map(block => {
         const repeatCount = block.loop ? 'indefinite' : '1';
         let animations = '';
@@ -117,15 +120,15 @@ const App = {
         switch (block.type) {
           case 'pan': {
             const { direction, distance, autoReverse } = block.parameters;
-            const pans = { right: `${distance * scaleX} 0`, left: `${-distance * scaleX} 0`, up: `0 ${-distance * scaleY}`, down: `0 ${distance * scaleY}` };
+            const pans = { right: `${distance * imageScale} 0`, left: `${-distance * imageScale} 0`, up: `0 ${-distance * imageScale}`, down: `0 ${distance * imageScale}` };
             const to = pans[direction];
             animations += `<animateTransform attributeName="transform" type="translate" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="0 0; ${to}; 0 0" keyTimes="0; 0.5; 1"` : `from="0 0" to="${to}"`} />`;
             break;
           }
           case 'zoom': {
             const { startScale, endScale, autoReverse, useCenter, zoomX, zoomY } = block.parameters;
-            const cx = useCenter ? canvasCenterX : zoomX * scaleX;
-            const cy = useCenter ? canvasCenterY : zoomY * scaleY;
+            const cx = useCenter ? scaledWidth / 2 : zoomX * imageScale;
+            const cy = useCenter ? scaledHeight / 2 : zoomY * imageScale;
             const fromTx = cx * (1 - startScale);
             const fromTy = cy * (1 - startScale);
             const toTx = cx * (1 - endScale);
@@ -136,8 +139,8 @@ const App = {
           }
           case 'rotate': {
             const { degrees, autoReverse, useCenter, rotateX, rotateY } = block.parameters;
-            const cx = useCenter ? canvasCenterX : rotateX * scaleX;
-            const cy = useCenter ? canvasCenterY : rotateY * scaleY;
+            const cx = useCenter ? scaledWidth / 2 : rotateX * imageScale;
+            const cy = useCenter ? scaledHeight / 2 : rotateY * imageScale;
             const from = `0 ${cx} ${cy}`;
             const to = `${degrees} ${cx} ${cy}`;
             animations += `<animateTransform attributeName="transform" type="rotate" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${from}; ${to}; ${from}" keyTimes="0; 0.5; 1"` : `from="${from}" to="${to}"`} />`;
@@ -154,7 +157,7 @@ const App = {
       }).join('');
       const opacityStyle = image.baseOpacity ? `opacity="${image.baseOpacity}"` : '';
       const filterStyle = image.blendMode && image.blendMode !== 'normal' ? `style="mix-blend-mode: ${image.blendMode}"` : '';
-      return `<g ${opacityStyle} ${filterStyle}>${animationElements}<image href="${image.base64Data}" width="${previewWidth}" height="${previewHeight}" x="0" y="0" /></g>`;
+      return `<g ${opacityStyle} ${filterStyle} transform="translate(${(previewWidth - scaledWidth) / 2}, ${(previewHeight - scaledHeight) / 2})"><image href="${image.base64Data}" width="${scaledWidth}" height="${scaledHeight}" x="0" y="0">${animationElements}</image></g>`;
     }).join('');
     return `<svg width="${previewWidth}" height="${previewHeight}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${previewWidth}" height="${previewHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
   },
@@ -311,16 +314,32 @@ const App = {
     this.contextMenu.x = event.clientX;
     this.contextMenu.y = event.clientY;
     this.contextMenu.visible = true;
+    this.contextMenu.showImageDialog = false;
+    this.contextMenu.dialogImage = this.project.images.find(img => img.id === imageId);
+    this.dialogZoom = 1;
+    window.addEventListener('click', this.handleGlobalClick, { once: true });
+  },
+  openImageDialog(imageId) {
+    this.contextMenu.targetId = imageId;
+    this.contextMenu.visible = false;
     this.contextMenu.showImageDialog = true;
     this.contextMenu.dialogImage = this.project.images.find(img => img.id === imageId);
     this.dialogZoom = 1;
-    window.addEventListener('click', this.closeContextMenu, { once: true });
+    window.addEventListener('click', this.handleGlobalClick, { once: true });
   },
   closeContextMenu() {
     this.contextMenu.visible = false;
     this.contextMenu.showImageDialog = false;
     this.contextMenu.dialogImage = null;
     this.dialogZoom = 1;
+  },
+  handleGlobalClick(event) {
+    const dialog = document.querySelector('.image-dialog');
+    const contextMenu = document.querySelector('.context-menu');
+    if (dialog && !dialog.contains(event.target) && (!contextMenu || !contextMenu.contains(event.target))) {
+      this.closeContextMenu();
+    }
+    window.addEventListener('click', this.handleGlobalClick, { once: true });
   },
   updateImageProperties(imageId, property, value) {
     const image = this.project.images.find(img => img.id === imageId);
