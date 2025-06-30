@@ -253,12 +253,12 @@ const App = {
     if (!this.draggedItemId || this.draggedItemId === targetId) {
       this.draggedItemId = null; this.dragOverItemId = null; return;
     }
-    const draggedImage = this.project.icons.find(p => p.id === this.draggedItemId);
-    const targetImage = this.project.icons.find(p => p.id === targetId);
+    const draggedImage = this.project.images.find(p => p.id === this.draggedItemId);
+    const targetImage = this.project.images.find(p => p.id === targetId);
     if (draggedImage && targetImage) {
       const fromOrder = draggedImage.order;
       const toOrder = targetImage.order;
-      this.project.icons.forEach(img => {
+      this.project.images.forEach(img => {
         if (img.id === draggedImage.id) {
           img.order = toOrder;
         } else if (fromOrder < toOrder && img.order > fromOrder && img.order <= toOrder) {
@@ -284,7 +284,7 @@ const App = {
     return this.selectedImage.animationBlocks.filter(b => b.rowIndex === rowIndex);
   },
   getImageForBlock(block) {
-    return this.project.icons.find(img => img.id === block.imageId);
+    return this.project.images.find(img => img.id === block.imageId);
   },
   addAnimationBlock(type) {
     if (!this.selectedImage) return;
@@ -319,7 +319,7 @@ const App = {
     this.updatePreview();
   },
   deleteAnimationBlock(id) {
-    this.project.icons.forEach(img => {
+    this.project.images.forEach(img => {
       img.animationBlocks = img.animationBlocks.filter(b => b.id !== id);
     });
     if (this.selectedBlock && this.selectedBlock.id === id) { this.selectedBlock = null; }
