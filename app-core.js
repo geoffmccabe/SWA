@@ -96,8 +96,10 @@ const App = {
     const { projectWidth, projectHeight, images } = this.project;
     if (images.length === 0) return '';
     const imagesToRender = [...images].sort((a, b) => b.order - a.order);
-    const canvasCenterX = projectWidth / 2;
-    const canvasCenterY = projectHeight / 2;
+    const previewWidth = 600; // Preview panel width
+    const previewHeight = 600; // Preview panel height
+    const canvasCenterX = previewWidth / 2;
+    const canvasCenterY = previewHeight / 2;
     const imageElements = imagesToRender.map(image => {
       const animationElements = image.animationBlocks.map(block => {
         const repeatCount = block.loop ? 'indefinite' : '1';
@@ -114,8 +116,8 @@ const App = {
           }
           case 'zoom': {
             const { startScale, endScale, autoReverse, useCenter, zoomX, zoomY } = block.parameters;
-            const cx = useCenter ? canvasCenterX : zoomX;
-            const cy = useCenter ? canvasCenterY : zoomY;
+            const cx = useCenter ? canvasCenterX : zoomX * (previewWidth / projectWidth);
+            const cy = useCenter ? canvasCenterY : zoomY * (previewHeight / projectHeight);
             const fromTx = cx * (1 - startScale);
             const fromTy = cy * (1 - startScale);
             const toTx = cx * (1 - endScale);
@@ -126,8 +128,8 @@ const App = {
           }
           case 'rotate': {
             const { degrees, autoReverse, useCenter, rotateX, rotateY } = block.parameters;
-            const cx = useCenter ? canvasCenterX : rotateX;
-            const cy = useCenter ? canvasCenterY : rotateY;
+            const cx = useCenter ? canvasCenterX : rotateX * (previewWidth / projectWidth);
+            const cy = useCenter ? canvasCenterY : rotateY * (previewHeight / projectHeight);
             const from = `0 ${cx} ${cy}`;
             const to = `${degrees} ${cx} ${cy}`;
             animations += `<animateTransform attributeName="transform" type="rotate" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${from}; ${to}; ${from}" keyTimes="0; 0.5; 1"` : `from="${from}" to="${to}"`} />`;
@@ -143,7 +145,7 @@ const App = {
       }).join('');
       return `<g>${animationElements}<image href="${image.base64Data}" width="${projectWidth}" height="${projectHeight}" x="0" y="0" /></g>`;
     }).join('');
-    return `<svg width="${projectWidth}" height="${projectHeight}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${projectWidth}" height="${projectHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
+    return `<svg width="${previewWidth}" height="${previewHeight}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${previewWidth}" height="${previewHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
   },
   async handleImageUpload(e) {
     const files = e.target.files;
@@ -171,7 +173,11 @@ const App = {
       alert("There was an error loading one or more images.");
     }
   },
-  selectImage(id) { this.project.selectedImageId = id; this.selectedBlock = null; },
+  selectImage(id) {
+    this.project.selectedImageId = id;
+    this.selectedBlock = null;
+    this.updatePreview();
+  },
   deleteImage(id) {
     const imageToDelete = this.project.images.find(img => img.id === id);
     if (!imageToDelete) return;
@@ -322,16 +328,20 @@ const App = {
     this.project.images.forEach(img => {
       img.animationBlocks = img.animationBlocks.filter(b => b.id !== id);
     });
-    if (this.selectedBlock && this.selectedBlock.id === id) { this.selectedBlock = null; }
+    if (this.selectedBlock && this.selectedBlock.id === id) {
+      this.selectedBlock = null;
+    }
     this.updatePreview();
   },
   selectBlock(block) {
+    if (!block) return;
     const image = this.getImageForBlock(block);
     if (image) {
       const originalBlock = image.animationBlocks.find(b => b.id === block.id);
       if (originalBlock) {
         this.project.selectedImageId = image.id;
         this.selectedBlock = originalBlock;
+        this.updatePreview();
       }
     }
   },
