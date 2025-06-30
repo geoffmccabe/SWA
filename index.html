@@ -43,7 +43,7 @@
       .top-section { display: flex; flex-grow: 1; gap: var(--panel-gap); padding: var(--panel-gap); height: 60%; }
       .bottom-section {
         height: 40%;
-        padding: 0 var(--panel-gap) var(--panel-gap); /* FIX: Reduced top padding */
+        padding: 0 var(--panel-gap) var(--panel-gap);
         display: flex;
         flex-direction: column;
       }
@@ -144,7 +144,7 @@
         display: flex;
         align-items: stretch;
         gap: 15px;
-        margin-bottom: 10px; /* FIX: Spacing between header and timeline rows */
+        margin-bottom: 10px;
         padding: 10px;
         background-color: var(--color-surface);
         border-radius: 8px;
@@ -163,7 +163,6 @@
         font-size: 12px;
         color: #999;
       }
-      /* FIX: Using ::before for placeholder text */
       .timeline-header-thumb:empty::before {
           content: "Select Image Above";
       }
@@ -191,7 +190,7 @@
       .timeline-rows-wrapper {
         flex-grow: 1;
         position: relative;
-        margin-top: 20px; /* FIX: Added space for ruler labels */
+        margin-top: 20px;
       }
       .timeline-row { position: relative; height: 33.33%; border-top: 1px solid var(--color-border); }
       .timeline-row:first-child { border-top: none; }
@@ -237,9 +236,7 @@
       .animation-block.opacity { background-color: var(--color-opacity); }
       .drag-placeholder {
         position: absolute;
-        height: calc(100% - 4px);
-        top: 2px;
-        border: 2px dashed var(--color-primary);
+        border: 1px dashed var(--color-button-grey); /* FIX: Style updated */
         border-radius: 4px;
         z-index: 5;
         pointer-events: none;
@@ -368,7 +365,6 @@
                     <div class="timeline-header">
                         <div class="timeline-header-thumb">
                             <img v-if="selectedImage" :src="selectedImage.base64Data">
-                            <!-- FIX: Placeholder now handled by CSS :empty::before -->
                         </div>
                         <div class="timeline-controls-wrapper">
                             <div v-if="selectedImage && selectedBlock" class="edit-form">
@@ -384,13 +380,15 @@
                                     <template v-if="selectedBlock.type === 'zoom'">
                                         <div><label>Start Scale</label><input type="number" step="0.1" v-model.number="selectedBlock.parameters.startScale"></div>
                                         <div><label>End Scale</label><input type="number" step="0.1" v-model.number="selectedBlock.parameters.endScale"></div>
-                                        <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.zoomX" :disabled="selectedBlock.parameters.useCenter"></div>
-                                        <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.zoomY" :disabled="selectedBlock.parameters.useCenter"></div>
+                                        <!-- FIX: Removed :disabled attribute -->
+                                        <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.zoomX"></div>
+                                        <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.zoomY"></div>
                                     </template>
                                     <template v-if="selectedBlock.type === 'rotate'">
                                         <div><label>Degrees</label><input type="number" v-model.number="selectedBlock.parameters.degrees"></div>
-                                        <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateX" :disabled="selectedBlock.parameters.useCenter"></div>
-                                        <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateY" :disabled="selectedBlock.parameters.useCenter"></div>
+                                        <!-- FIX: Removed :disabled attribute -->
+                                        <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateX"></div>
+                                        <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateY"></div>
                                     </template>
                                     <template v-if="selectedBlock.type === 'opacity'">
                                         <div><label>Start Opacity</label><input type="number" step="0.1" min="0" max="1" v-model.number="selectedBlock.parameters.startOpacity"></div>
@@ -431,7 +429,8 @@
                             <div v-for="mark in timelineMarks.seconds" :key="'sec-' + mark.pos" class="ruler-line second" :style="{ left: mark.pos + '%' }"></div>
                             <div v-for="mark in timelineMarks.seconds" :key="'label-' + mark.pos" class="ruler-label" :style="{ left: mark.pos + '%' }">{{ mark.label }}s</div>
                         </div>
-                        <div v-if="dragPlaceholder.visible" class="drag-placeholder" :style="{ left: dragPlaceholder.left, width: dragPlaceholder.width, top: dragPlaceholder.top }"></div>
+                        <!-- FIX: Binding height to placeholder style -->
+                        <div v-if="dragPlaceholder.visible" class="drag-placeholder" :style="{ left: dragPlaceholder.left, width: dragPlaceholder.width, top: dragPlaceholder.top, height: dragPlaceholder.height }"></div>
                         <div v-for="rowIndex in [0, 1, 2]" :key="rowIndex" class="timeline-row" :data-row-index="rowIndex">
                             <div
                                 v-for="block in getBlocksForRow(rowIndex)"
@@ -476,12 +475,13 @@
           timelineDuration: 10,
           overlapError: false,
           isRendering: false,
-          draggedItemId: null, // For thumbnail drag
-          draggedBlockInfo: null, // For timeline block drag
+          draggedItemId: null,
+          draggedBlockInfo: null,
           dragOverItemId: null,
           contextMenu: { visible: false, x: 0, y: 0, targetId: null },
           livePreviewSvgUrl: '',
-          dragPlaceholder: { visible: false, left: '0px', width: '0px', top: '0px' },
+          // FIX: Added height to placeholder state
+          dragPlaceholder: { visible: false, left: '0px', width: '0px', top: '0px', height: '0px' },
 
           // --- COMPUTED ---
           get sortedImages() {
@@ -509,7 +509,6 @@
 
           // --- METHODS ---
           updatePreview() {
-              // Debounce preview update to avoid excessive rendering on fast input changes
               if (this.previewDebounce) clearTimeout(this.previewDebounce);
               this.previewDebounce = setTimeout(() => {
                 if (this.project.images.length === 0) {
@@ -540,7 +539,6 @@
                       const blockStartTime = block.startTime;
                       const blockDuration = block.duration;
 
-                      // This function creates the combined transform for scale and translate
                       const createZoomTransform = (scale, cx, cy) => {
                           const tx = cx * (1 - scale);
                           const ty = cy * (1 - scale);
@@ -561,7 +559,7 @@
                               const cy = useCenter ? canvasCenterY : zoomY;
                               const fromTransform = createZoomTransform(startScale, cx, cy);
                               const toTransform = createZoomTransform(endScale, cx, cy);
-                              animations += `<animateTransform attributeName="transform" type="scale" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${fromTransform}; ${toTransform}; ${fromTransform}" keyTimes="0; 0.5; 1"` : `from="${fromTransform}" to="${toTransform}"`} />`;
+                              animations += `<animateTransform attributeName="transform" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${fromTransform}; ${toTransform}; ${fromTransform}" keyTimes="0; 0.5; 1"` : `from="${fromTransform}" to="${toTransform}"`} />`;
                               break;
                           }
                           case 'rotate': {
@@ -586,29 +584,12 @@
 
               return `<svg width="${projectWidth}" height="${projectHeight}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${projectWidth}" height="${projectHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
           },
+          // FIX: Updated to filter by rowIndex
           getBlocksForRow(rowIndex) {
-              const rows = [[], [], []];
-              const allBlocks = this.project.images.flatMap(img => img.animationBlocks.map(b => ({...b, imageId: img.id})));
-              const sortedBlocks = allBlocks.sort((a, b) => a.startTime - b.startTime);
-
-              for (const block of sortedBlocks) {
-                  let placed = false;
-                  for (let i = 0; i < 3; i++) {
-                      const hasOverlap = rows[i].some(existingBlock =>
-                          (block.startTime < existingBlock.startTime + existingBlock.duration) &&
-                          (block.startTime + block.duration > existingBlock.startTime)
-                      );
-                      if (!hasOverlap) {
-                          rows[i].push(block);
-                          placed = true;
-                          break;
-                      }
-                  }
-                  if (!placed) {
-                      rows[0].push(block);
-                  }
-              }
-              return rows[rowIndex];
+              const allBlocks = this.project.images.flatMap(img =>
+                  img.animationBlocks.map(b => ({...b, imageId: img.id}))
+              );
+              return allBlocks.filter(b => b.rowIndex === rowIndex);
           },
           getImageForBlock(block) {
               return this.project.images.find(img => img.id === block.imageId);
@@ -667,13 +648,39 @@
             reader.onload = (event) => {
                 try {
                     const data = JSON.parse(event.target.result);
-                    if (data && data.images && Array.isArray(data.images)) {
-                        this.project = data;
-                        this.selectImage(data.selectedImageId || null);
-                        this.updatePreview();
-                    } else {
+                    if (!data || !data.images || !Array.isArray(data.images)) {
                         alert('Invalid project file structure.');
+                        return;
                     }
+                    // FIX: Migration logic for old projects
+                    const needsMigration = data.images.some(img => img.animationBlocks.some(b => b.rowIndex === undefined));
+                    if (needsMigration) {
+                        const allBlocks = data.images.flatMap(img => img.animationBlocks);
+                        const sortedBlocks = allBlocks.sort((a, b) => a.startTime - b.startTime);
+                        const rows = [[], [], []];
+                         for (const block of sortedBlocks) {
+                            let placed = false;
+                            for (let i = 0; i < 3; i++) {
+                                 const hasOverlap = rows[i].some(existingBlock =>
+                                    (block.startTime < existingBlock.startTime + existingBlock.duration) &&
+                                    (block.startTime + block.duration > existingBlock.startTime)
+                                 );
+                                 if (!hasOverlap) {
+                                     block.rowIndex = i;
+                                     rows[i].push(block);
+                                     placed = true;
+                                     break;
+                                 }
+                            }
+                            if (!placed) {
+                                block.rowIndex = 0;
+                                rows[0].push(block);
+                            }
+                         }
+                    }
+                    this.project = data;
+                    this.selectImage(data.selectedImageId || null);
+                    this.updatePreview();
                 } catch { alert('Error parsing project file.'); }
             };
             reader.readAsText(file);
@@ -744,8 +751,19 @@
             window.addEventListener('click', this.closeContextMenu, { once: true });
           },
           closeContextMenu() { this.contextMenu.visible = false; },
+          // FIX: Assigns rowIndex when adding a new block
           addAnimationBlock(type) {
             if (!this.selectedImage) return;
+            const allBlocks = this.project.images.flatMap(img => img.animationBlocks);
+            let targetRow = 0;
+            for (let i = 0; i < 3; i++) {
+                const blocksOnRow = allBlocks.filter(b => b.rowIndex === i);
+                const hasOverlap = blocksOnRow.some(b => (0 < b.startTime + b.duration) && (2 > b.startTime)); // Check overlap for default 2s duration
+                if (!hasOverlap) {
+                    targetRow = i;
+                    break;
+                }
+            }
             const defaultParams = {
                 pan: { direction: 'right', distance: 100, autoReverse: true },
                 zoom: { startScale: 1, endScale: 1.5, autoReverse: true, useCenter: true, zoomX: 0, zoomY: 0 },
@@ -754,6 +772,7 @@
             };
             const newBlock = {
                 id: `anim_${Date.now()}`, type, startTime: 0, duration: 2, loop: true,
+                rowIndex: targetRow,
                 parameters: defaultParams[type],
             };
             this.selectedImage.animationBlocks.push(newBlock);
@@ -780,16 +799,15 @@
               event.dataTransfer.setData('text/plain', block.id);
               event.dataTransfer.effectAllowed = 'move';
           },
+          // FIX: Updated to control placeholder height
           onBlockDragOver(event) {
               if (!this.draggedBlockInfo) return;
               event.preventDefault();
 
               const timelineRect = this.$refs.timelineWrapper.getBoundingClientRect();
               const rowHeight = timelineRect.height / 3;
-
               const dropX = event.clientX - timelineRect.left - this.draggedBlockInfo.offset;
               const dropY = event.clientY - timelineRect.top;
-
               const rawTime = (dropX / timelineRect.width) * this.timelineDuration;
               const snappedTime = Math.max(0, Math.round(rawTime * 10) / 10);
               const targetRowIndex = Math.min(2, Math.floor(dropY / rowHeight));
@@ -797,7 +815,8 @@
               this.dragPlaceholder.visible = true;
               this.dragPlaceholder.left = `${(snappedTime / this.timelineDuration) * 100}%`;
               this.dragPlaceholder.width = `${(this.draggedBlockInfo.block.duration / this.timelineDuration) * 100}%`;
-              this.dragPlaceholder.top = `${targetRowIndex * rowHeight}px`;
+              this.dragPlaceholder.top = `${targetRowIndex * rowHeight + 1}px`;
+              this.dragPlaceholder.height = `${rowHeight - 2}px`;
           },
           onBlockDragLeave(event) {
             const timelineRect = this.$refs.timelineWrapper.getBoundingClientRect();
@@ -805,6 +824,7 @@
               this.dragPlaceholder.visible = false;
             }
           },
+          // FIX: Drop logic now uses rowIndex
           onBlockDrop(event) {
               if (!this.draggedBlockInfo) return;
               this.dragPlaceholder.visible = false;
@@ -812,15 +832,15 @@
               const draggedBlock = this.draggedBlockInfo.block;
               const timelineRect = this.$refs.timelineWrapper.getBoundingClientRect();
               const rowHeight = timelineRect.height / 3;
-
               const dropX = event.clientX - timelineRect.left - this.draggedBlockInfo.offset;
               const dropY = event.clientY - timelineRect.top;
               const rawTime = (dropX / timelineRect.width) * this.timelineDuration;
               const snappedTime = Math.max(0, Math.round(rawTime * 10) / 10);
               const targetRowIndex = Math.min(2, Math.floor(dropY / rowHeight));
 
-              const targetRowBlocks = this.getBlocksForRow(targetRowIndex);
-              const hasOverlap = targetRowBlocks.some(b =>
+              const allBlocksOnTargetRow = this.project.images.flatMap(img => img.animationBlocks).filter(b => b.rowIndex === targetRowIndex);
+
+              const hasOverlap = allBlocksOnTargetRow.some(b =>
                   b.id !== draggedBlock.id &&
                   (snappedTime < b.startTime + b.duration) &&
                   (snappedTime + draggedBlock.duration > b.startTime)
@@ -834,11 +854,11 @@
                   const blockToUpdate = imageOfBlock.animationBlocks.find(b => b.id === draggedBlock.id);
                   if (blockToUpdate) {
                       blockToUpdate.startTime = snappedTime;
+                      blockToUpdate.rowIndex = targetRowIndex;
                       this.selectBlock(blockToUpdate);
                       this.updatePreview();
                   }
               }
-
               this.draggedBlockInfo = null;
           },
 
