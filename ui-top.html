@@ -66,7 +66,7 @@
     </div>
     <div v-if="contextMenu.showImageDialog && contextMenu.dialogImage" class="image-dialog">
         <div class="image-dialog-content">
-            <button class="dialog-close" @click.stop="closeContextMenu">[x]</button>
+            <button class="dialog-close" @click.stop="closeContextMenu">×</button>
             <div class="image-dialog-header">
                 <span>Layer {{ contextMenu.dialogImage.order + 1 }}</span>
                 <span>{{ contextMenu.dialogImage.name }}</span>
@@ -111,6 +111,15 @@
                     <button @click.stop="zoomDialogImage('out')">Zoom -</button>
                     <button @click.stop="deleteImage(contextMenu.dialogImage.id)">Delete</button>
                 </div>
+            </div>
+        </div>
+    </div>
+    <div v-if="contextMenu.showConfirmDialog" class="confirm-dialog">
+        <div class="confirm-dialog-content">
+            <span>Confirm Delete Y/N</span>
+            <div class="confirm-dialog-buttons">
+                <button @click.stop="confirmDeleteImage">Yes</button>
+                <button @click.stop="cancelDeleteImage">No</button>
             </div>
         </div>
     </div>
