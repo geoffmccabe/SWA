@@ -236,7 +236,7 @@
       .animation-block.opacity { background-color: var(--color-opacity); }
       .drag-placeholder {
         position: absolute;
-        border: 1px dashed var(--color-button-grey); /* FIX: Style updated */
+        border: 1px dashed var(--color-button-grey);
         border-radius: 4px;
         z-index: 5;
         pointer-events: none;
@@ -380,15 +380,13 @@
                                     <template v-if="selectedBlock.type === 'zoom'">
                                         <div><label>Start Scale</label><input type="number" step="0.1" v-model.number="selectedBlock.parameters.startScale"></div>
                                         <div><label>End Scale</label><input type="number" step="0.1" v-model.number="selectedBlock.parameters.endScale"></div>
-                                        <!-- FIX: Removed :disabled attribute -->
-                                        <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.zoomX"></div>
-                                        <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.zoomY"></div>
+                                        <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.zoomX" :disabled="selectedBlock.parameters.useCenter"></div>
+                                        <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.zoomY" :disabled="selectedBlock.parameters.useCenter"></div>
                                     </template>
                                     <template v-if="selectedBlock.type === 'rotate'">
                                         <div><label>Degrees</label><input type="number" v-model.number="selectedBlock.parameters.degrees"></div>
-                                        <!-- FIX: Removed :disabled attribute -->
-                                        <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateX"></div>
-                                        <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateY"></div>
+                                        <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateX" :disabled="selectedBlock.parameters.useCenter"></div>
+                                        <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.rotateY" :disabled="selectedBlock.parameters.useCenter"></div>
                                     </template>
                                     <template v-if="selectedBlock.type === 'opacity'">
                                         <div><label>Start Opacity</label><input type="number" step="0.1" min="0" max="1" v-model.number="selectedBlock.parameters.startOpacity"></div>
@@ -429,7 +427,6 @@
                             <div v-for="mark in timelineMarks.seconds" :key="'sec-' + mark.pos" class="ruler-line second" :style="{ left: mark.pos + '%' }"></div>
                             <div v-for="mark in timelineMarks.seconds" :key="'label-' + mark.pos" class="ruler-label" :style="{ left: mark.pos + '%' }">{{ mark.label }}s</div>
                         </div>
-                        <!-- FIX: Binding height to placeholder style -->
                         <div v-if="dragPlaceholder.visible" class="drag-placeholder" :style="{ left: dragPlaceholder.left, width: dragPlaceholder.width, top: dragPlaceholder.top, height: dragPlaceholder.height }"></div>
                         <div v-for="rowIndex in [0, 1, 2]" :key="rowIndex" class="timeline-row" :data-row-index="rowIndex">
                             <div
@@ -480,7 +477,6 @@
           dragOverItemId: null,
           contextMenu: { visible: false, x: 0, y: 0, targetId: null },
           livePreviewSvgUrl: '',
-          // FIX: Added height to placeholder state
           dragPlaceholder: { visible: false, left: '0px', width: '0px', top: '0px', height: '0px' },
 
           // --- COMPUTED ---
@@ -539,12 +535,6 @@
                       const blockStartTime = block.startTime;
                       const blockDuration = block.duration;
 
-                      const createZoomTransform = (scale, cx, cy) => {
-                          const tx = cx * (1 - scale);
-                          const ty = cy * (1 - scale);
-                          return `translate(${tx} ${ty}) scale(${scale})`;
-                      };
-
                       switch (block.type) {
                           case 'pan': {
                               const { direction, distance, autoReverse } = block.parameters;
@@ -557,9 +547,13 @@
                               const { startScale, endScale, autoReverse, useCenter, zoomX, zoomY } = block.parameters;
                               const cx = useCenter ? canvasCenterX : zoomX;
                               const cy = useCenter ? canvasCenterY : zoomY;
-                              const fromTransform = createZoomTransform(startScale, cx, cy);
-                              const toTransform = createZoomTransform(endScale, cx, cy);
-                              animations += `<animateTransform attributeName="transform" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${fromTransform}; ${toTransform}; ${fromTransform}" keyTimes="0; 0.5; 1"` : `from="${fromTransform}" to="${toTransform}"`} />`;
+                              const fromTx = cx * (1 - startScale);
+                              const fromTy = cy * (1 - startScale);
+                              const toTx = cx * (1 - endScale);
+                              const toTy = cy * (1 - endScale);
+
+                              animations += `<animateTransform attributeName="transform" type="scale" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${startScale}; ${endScale}; ${startScale}" keyTimes="0; 0.5; 1"` : `from="${startScale}" to="${endScale}"`} />`;
+                              animations += `<animateTransform attributeName="transform" type="translate" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${fromTx} ${fromTy}; ${toTx} ${toTy}; ${fromTx} ${fromTy}" keyTimes="0; 0.5; 1"` : `from="${fromTx} ${fromTy}" to="${toTx} ${toTy}"`} />`;
                               break;
                           }
                           case 'rotate': {
@@ -579,12 +573,11 @@
                       }
                       return animations;
                   }).join('');
-                  return `<g transform="">${animationElements}<image href="${image.base64Data}" width="${projectWidth}" height="${projectHeight}" x="0" y="0" /></g>`;
+                  return `<g>${animationElements}<image href="${image.base64Data}" width="${projectWidth}" height="${projectHeight}" x="0" y="0" /></g>`;
               }).join('');
 
               return `<svg width="${projectWidth}" height="${projectHeight}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${projectWidth}" height="${projectHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
           },
-          // FIX: Updated to filter by rowIndex
           getBlocksForRow(rowIndex) {
               const allBlocks = this.project.images.flatMap(img =>
                   img.animationBlocks.map(b => ({...b, imageId: img.id}))
@@ -652,7 +645,6 @@
                         alert('Invalid project file structure.');
                         return;
                     }
-                    // FIX: Migration logic for old projects
                     const needsMigration = data.images.some(img => img.animationBlocks.some(b => b.rowIndex === undefined));
                     if (needsMigration) {
                         const allBlocks = data.images.flatMap(img => img.animationBlocks);
@@ -751,14 +743,13 @@
             window.addEventListener('click', this.closeContextMenu, { once: true });
           },
           closeContextMenu() { this.contextMenu.visible = false; },
-          // FIX: Assigns rowIndex when adding a new block
           addAnimationBlock(type) {
             if (!this.selectedImage) return;
             const allBlocks = this.project.images.flatMap(img => img.animationBlocks);
             let targetRow = 0;
             for (let i = 0; i < 3; i++) {
                 const blocksOnRow = allBlocks.filter(b => b.rowIndex === i);
-                const hasOverlap = blocksOnRow.some(b => (0 < b.startTime + b.duration) && (2 > b.startTime)); // Check overlap for default 2s duration
+                const hasOverlap = blocksOnRow.some(b => (0 < b.startTime + b.duration) && (2 > b.startTime));
                 if (!hasOverlap) {
                     targetRow = i;
                     break;
@@ -786,9 +777,16 @@
             if (this.selectedBlock && this.selectedBlock.id === id) { this.selectedBlock = null; }
             this.updatePreview();
           },
+          // FIX: Selects the original block from project data
           selectBlock(block) {
-              this.project.selectedImageId = this.getImageForBlock(block).id;
-              this.selectedBlock = block;
+              const image = this.getImageForBlock(block);
+              if (image) {
+                  const originalBlock = image.animationBlocks.find(b => b.id === block.id);
+                  if (originalBlock) {
+                      this.project.selectedImageId = image.id;
+                      this.selectedBlock = originalBlock;
+                  }
+              }
           },
           onBlockDragStart(event, block) {
               const rect = event.target.getBoundingClientRect();
@@ -799,7 +797,6 @@
               event.dataTransfer.setData('text/plain', block.id);
               event.dataTransfer.effectAllowed = 'move';
           },
-          // FIX: Updated to control placeholder height
           onBlockDragOver(event) {
               if (!this.draggedBlockInfo) return;
               event.preventDefault();
@@ -824,7 +821,6 @@
               this.dragPlaceholder.visible = false;
             }
           },
-          // FIX: Drop logic now uses rowIndex
           onBlockDrop(event) {
               if (!this.draggedBlockInfo) return;
               this.dragPlaceholder.visible = false;
@@ -855,7 +851,7 @@
                   if (blockToUpdate) {
                       blockToUpdate.startTime = snappedTime;
                       blockToUpdate.rowIndex = targetRowIndex;
-                      this.selectBlock(blockToUpdate);
+                      this.selectBlock(blockToUpdate); // This re-selects the original block
                       this.updatePreview();
                   }
               }
