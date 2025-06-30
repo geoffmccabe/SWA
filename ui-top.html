@@ -64,9 +64,6 @@
     </div>
 </div>
 <div class="panel panel-preview">
-     <div v-if="isSafari" class="safari-warning">
-         Note: Live preview may not display correctly in Safari. Your export will still work.
-     </div>
      <div v-if="project.images.length > 0">
          <object type="image/svg+xml" :data="livePreviewSvgUrl" class="live-preview"></object>
      </div>
