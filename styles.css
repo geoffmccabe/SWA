@@ -308,7 +308,7 @@ input, select {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  overflow: auto;
+  overflow: hidden;
   cursor: default;
 }
 
@@ -378,16 +378,19 @@ input, select {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: auto;
+  overflow: hidden;
   max-height: calc(80vh - 200px);
   position: relative;
+  touch-action: none;
 }
 
 .image-dialog-image img {
   max-width: none;
   max-height: none;
   object-fit: contain;
-  transform-origin: 0 0;
+  transform-origin: center center;
+  cursor: move;
+  user-select: none;
 }
 
 .zoom-point-mode .image-dialog-image {
