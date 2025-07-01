@@ -72,8 +72,8 @@
                 <span style="font-weight: bold">Layer {{ contextMenu.dialogImage.order + 1 }}</span>
                 <span>{{ contextMenu.dialogImage.name }}</span>
             </div>
-            <div class="image-dialog-image">
-                <img :src="contextMenu.dialogImage.base64Data" :style="dialogImageStyles" @click.stop="handleImageClick($event)">
+            <div class="image-dialog-image" @mousedown="startImageDrag">
+                <img :src="contextMenu.dialogImage.base64Data" :style="dialogImageStyles">
             </div>
             <hr class="image-dialog-divider">
             <div class="image-dialog-controls">
