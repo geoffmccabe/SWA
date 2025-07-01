@@ -131,8 +131,9 @@ input, select {
 }
 .control-group.button-group button {
   width: auto;
-  padding: 8px 12px;
+  padding: 5px 8px;
   font-size: 12px;
+  line-height: 1.2;
 }
 .control-group h3 { 
   margin-top: 0; 
@@ -208,7 +209,7 @@ input, select {
   position: absolute;
   top: 4px;
   right: 4px;
-  width: calc(10% * 0.2 / 3); /* 1/3 of previous size */
+  width: calc(10% * 0.2 / 3 * 0.4);
   aspect-ratio: 1 / 1;
   background-color: var(--color-button-grey);
   color: white;
@@ -253,9 +254,6 @@ input, select {
 }
 .image-dialog {
   position: absolute;
-  width: 60vw;
-  max-height: 80vh;
-  background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
@@ -263,6 +261,7 @@ input, select {
   display: flex;
   flex-direction: column;
   padding: 15px;
+  background-color: var(--color-surface);
 }
 .image-dialog-content {
   display: flex;
@@ -282,11 +281,11 @@ input, select {
   position: absolute;
   top: 4px;
   right: 4px;
-  width: 24px;
-  height: 24px;
+  width: 48px;
+  height: 48px;
   background-color: var(--color-button-grey);
   color: white;
-  font-size: 16px;
+  font-size: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -326,6 +325,19 @@ input, select {
 .image-dialog-controls button {
   width: auto;
   margin-bottom: 0;
+}
+.resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  background-color: var(--color-button-grey);
+  cursor: se-resize;
+  border-radius: 0 0 8px 0;
+}
+.resize-handle:hover {
+  background-color: #666666;
 }
 .confirm-dialog {
   position: fixed;
@@ -391,7 +403,7 @@ input, select {
   color: #999;
 }
 .timeline-header-thumb:empty::before {
-    content: "Select Image Above";
+  content: "Select Image Above";
 }
 .timeline-header-thumb img { 
   width: 100%; 
