@@ -60,14 +60,14 @@ body {
   display: flex; 
   align-items: center; 
   justify-content: center; 
-  overflow: hidden; 
+  overflow: visible; 
   position: relative; 
 }
 .top-section > .panel:nth-child(1) { 
   overflow: hidden; 
 }
 .top-section > .panel:nth-child(3) { 
-  overflow: hidden; 
+  overflow: visible; 
 }
 .placeholder-text, .placeholder-timeline { 
   display: flex; 
