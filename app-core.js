@@ -98,6 +98,7 @@ const App = {
   },
 
   updatePreview() {
+    console.log('updatePreview called');
     if (this.previewDebounce) clearTimeout(this.previewDebounce);
     this.previewDebounce = setTimeout(() => {
       if (this.project.images.length === 0) {
@@ -117,14 +118,16 @@ const App = {
     const { projectWidth, projectHeight, images } = this.project;
     if (images.length === 0) return '';
     const imagesToRender = [...images].sort((a, b) => b.order - a.order);
-    const svgWidth = projectWidth;
-    const svgHeight = projectHeight;
+    const svgWidth = Math.max(1, projectWidth);
+    const svgHeight = Math.max(1, projectHeight);
+    console.log(`SVG Dimensions: width=${svgWidth}, height=${svgHeight}`);
     const imageElements = imagesToRender.map(image => {
-      const imageScale = Math.min(svgWidth / image.width, svgHeight / image.height);
+      const imageScale = Math.min(svgWidth / Math.max(1, image.width), svgHeight / Math.max(1, image.height));
       const scaledWidth = image.width * imageScale;
       const scaledHeight = image.height * imageScale;
       const x = (svgWidth - scaledWidth) / 2;
       const y = (svgHeight - scaledHeight) / 2;
+      console.log(`Image Scale: ${imageScale}, Scaled: ${scaledWidth}x${scaledHeight}, Position: ${x},${y}`);
       const animationElements = image.animationBlocks.map(block => {
         const repeatCount = block.loop ? 'indefinite' : '1';
         let animations = '';
@@ -140,10 +143,11 @@ const App = {
           }
           case 'zoom': {
             const { startScale, endScale, autoReverse, useCenter, zoomX, zoomY } = block.parameters;
-            const cx = useCenter ? image.width / 2 : zoomX;
-            const cy = useCenter ? image.height / 2 : zoomY;
+            const cx = useCenter ? image.width / 2 : Math.max(0, Math.min(zoomX, image.width));
+            const cy = useCenter ? image.height / 2 : Math.max(0, Math.min(zoomY, image.height));
             const scaledCx = cx * imageScale;
             const scaledCy = cy * imageScale;
+            console.log(`Zoom Center: cx=${cx}, cy=${cy}, scaledCx=${scaledCx}, scaledCy=${scaledCy}`);
             const fromTx = scaledCx * (1 - startScale);
             const fromTy = scaledCy * (1 - startScale);
             const toTx = scaledCx * (1 - endScale);
@@ -154,8 +158,8 @@ const App = {
           }
           case 'rotate': {
             const { degrees, autoReverse, useCenter, rotateX, rotateY } = block.parameters;
-            const cx = useCenter ? image.width / 2 : rotateX;
-            const cy = useCenter ? image.height / 2 : rotateY;
+            const cx = useCenter ? image.width / 2 : Math.max(0, Math.min(rotateX, image.width));
+            const cy = useCenter ? image.height / 2 : Math.max(0, Math.min(rotateY, image.height));
             const scaledCx = cx * imageScale;
             const scaledCy = cy * imageScale;
             const from = `0 ${scaledCx} ${scaledCy}`;
@@ -368,7 +372,6 @@ const App = {
     this.contextMenu.dialogHeight = 80;
     this.dialogZoom = 1;
     this.isSettingZoomPoint = false;
-    window.addEventListener('click', this.handleGlobalClick, { once: true });
   },
   closeContextMenu() {
     this.contextMenu.visible = false;
@@ -405,7 +408,7 @@ const App = {
     const x = event.clientX - this.dragOffsetX;
     const y = event.clientY - this.dragOffsetY;
     const minY = 10;
-    const maxY = window.innerHeight - 50;
+    const maxY = window.innerHeight - 100;
     this.contextMenu.dialogX = Math.max(0, Math.min(x, window.innerWidth - this.contextMenu.dialogWidth * window.innerWidth / 100));
     this.contextMenu.dialogY = Math.max(minY, Math.min(y, maxY));
   },
@@ -459,15 +462,18 @@ const App = {
     }
   },
   handleImageClick(event) {
-    if (!this.selectedBlock || this.selectedBlock.type !== 'zoom') return;
+    if (!this.selectedBlock || this.selectedBlock.type !== 'zoom') {
+      alert('Please select a Zoom animation block first.');
+      return;
+    }
     this.selectedBlock.parameters.useCenter = false;
     const img = event.currentTarget;
     const rect = img.getBoundingClientRect();
     const imageScale = Math.min(rect.width / this.contextMenu.dialogImage.width, rect.height / this.contextMenu.dialogImage.height);
     const x = (event.clientX - rect.left) / imageScale / this.dialogZoom;
     const y = (event.clientY - rect.top) / imageScale / this.dialogZoom;
-    this.selectedBlock.parameters.zoomX = Math.round(x);
-    this.selectedBlock.parameters.zoomY = Math.round(y);
+    this.selectedBlock.parameters.zoomX = Math.round(Math.max(0, Math.min(x, this.contextMenu.dialogImage.width)));
+    this.selectedBlock.parameters.zoomY = Math.round(Math.max(0, Math.min(y, this.contextMenu.dialogImage.height)));
     this.updatePreview();
   },
   getBlocksForRow(rowIndex) {
@@ -527,7 +533,6 @@ const App = {
         this.project.selectedImageId = image.id;
         this.selectedBlock = originalBlock;
         this.isSettingZoomPoint = false;
-        this.updatePreview();
       }
     }
   },
