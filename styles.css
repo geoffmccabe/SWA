@@ -203,17 +203,19 @@ input, select {
   position: absolute;
   top: 4px;
   right: 4px;
-  width: calc(10% * 0.2 / 3 * 0.4 * 0.4 * 0.4 * 0.4);
-  height: calc(10% * 0.2 / 3 * 0.4 * 0.4 * 0.4 * 0.4);
+  width: 16px;
+  height: 16px;
   background-color: var(--color-button-grey);
   color: white;
-  font-size: 6px;
+  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 2px;
+  border-radius: 3px;
   cursor: pointer;
+  line-height: 1;
+  padding: 0;
 }
 .thumbnail-plus:hover {
   background-color: #666666;
@@ -262,6 +264,7 @@ input, select {
   flex-direction: column;
   gap: 10px;
   overflow: auto;
+  cursor: default;
 }
 .image-dialog-header {
   display: flex;
@@ -392,6 +395,8 @@ input, select {
   min-width: 100%; 
   min-height: 300px; 
   object-fit: contain; 
+  margin: 0 auto; 
+  display: block; 
 }
 .timeline-container { 
   display: flex; 
@@ -466,8 +471,8 @@ input, select {
   position: relative;
   border-top: 1px solid var(--color-border);
 }
-.timeline-row:first-child { 
-  border-top: none; 
+.timeline-row:last-child {
+  border-bottom: 1px solid var(--color-border);
 }
 .time-ruler {
   position: absolute;
