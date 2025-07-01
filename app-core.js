@@ -42,6 +42,7 @@ const App = {
   resizeOffsetX: 0,
   resizeOffsetY: 0,
   isSettingZoomPoint: false,
+  lastPreviewData: null,
 
   get sortedImages() {
     return [...this.project.images].sort((a, b) => a.order - b.order);
@@ -101,6 +102,16 @@ const App = {
     console.log('updatePreview called');
     if (this.previewDebounce) clearTimeout(this.previewDebounce);
     this.previewDebounce = setTimeout(() => {
+      const currentData = JSON.stringify({
+        images: this.project.images,
+        width: this.project.projectWidth,
+        height: this.project.projectHeight,
+        selectedBlock: this.selectedBlock?.id
+      });
+      
+      if (currentData === this.lastPreviewData) return;
+      this.lastPreviewData = currentData;
+
       if (this.project.images.length === 0) {
         if (this.livePreviewSvgUrl) {
           URL.revokeObjectURL(this.livePreviewSvgUrl);
@@ -108,37 +119,53 @@ const App = {
         }
         return;
       }
+
       const svgContent = this.getSvgString();
       const blob = new Blob([svgContent], { type: 'image/svg+xml' });
       if (this.livePreviewSvgUrl) URL.revokeObjectURL(this.livePreviewSvgUrl);
       this.livePreviewSvgUrl = URL.createObjectURL(blob);
-    }, 50);
+    }, 100);
   },
+
   getSvgString() {
     const { projectWidth, projectHeight, images } = this.project;
     if (images.length === 0) return '';
+    
     const imagesToRender = [...images].sort((a, b) => b.order - a.order);
     const svgWidth = Math.max(1, projectWidth);
     const svgHeight = Math.max(1, projectHeight);
-    console.log(`SVG Dimensions: width=${svgWidth}, height=${svgHeight}`);
+    
     const imageElements = imagesToRender.map(image => {
-      const imageScale = Math.min(svgWidth / Math.max(1, image.width), svgHeight / Math.max(1, image.height));
+      const imageScale = Math.min(
+        svgWidth / Math.max(1, image.width), 
+        svgHeight / Math.max(1, image.height)
+      );
       const scaledWidth = image.width * imageScale;
       const scaledHeight = image.height * imageScale;
       const x = (svgWidth - scaledWidth) / 2;
       const y = (svgHeight - scaledHeight) / 2;
-      console.log(`Image Scale: ${imageScale}, Scaled: ${scaledWidth}x${scaledHeight}, Position: ${x},${y}`);
+
       const animationElements = image.animationBlocks.map(block => {
         const repeatCount = block.loop ? 'indefinite' : '1';
         let animations = '';
+        
         const blockStartTime = block.startTime;
         const blockDuration = block.duration;
+        
         switch (block.type) {
           case 'pan': {
             const { direction, distance, autoReverse } = block.parameters;
-            const pans = { right: `${distance * imageScale} 0`, left: `${-distance * imageScale} 0`, up: `0 ${-distance * imageScale}`, down: `0 ${distance * imageScale}` };
+            const pans = { 
+              right: `${distance * imageScale} 0`, 
+              left: `${-distance * imageScale} 0`, 
+              up: `0 ${-distance * imageScale}`, 
+              down: `0 ${distance * imageScale}` 
+            };
             const to = pans[direction];
-            animations += `<animateTransform attributeName="transform" type="translate" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="0 0; ${to}; 0 0" keyTimes="0; 0.5; 1"` : `from="0 0" to="${to}"`} />`;
+            animations += `<animateTransform attributeName="transform" type="translate" additive="sum" 
+              begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" 
+              ${autoReverse ? `values="0 0; ${to}; 0 0" keyTimes="0; 0.5; 1"` 
+              : `from="0 0" to="${to}"`} />`;
             break;
           }
           case 'zoom': {
@@ -147,13 +174,21 @@ const App = {
             const cy = useCenter ? image.height / 2 : Math.max(0, Math.min(zoomY, image.height));
             const scaledCx = cx * imageScale;
             const scaledCy = cy * imageScale;
-            console.log(`Zoom Center: cx=${cx}, cy=${cy}, scaledCx=${scaledCx}, scaledCy=${scaledCy}`);
+            
             const fromTx = scaledCx * (1 - startScale);
             const fromTy = scaledCy * (1 - startScale);
             const toTx = scaledCx * (1 - endScale);
             const toTy = scaledCy * (1 - endScale);
-            animations += `<animateTransform attributeName="transform" type="scale" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${startScale}; ${endScale}; ${startScale}" keyTimes="0; 0.5; 1"` : `from="${startScale}" to="${endScale}"`} />`;
-            animations += `<animateTransform attributeName="transform" type="translate" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${fromTx} ${fromTy}; ${toTx} ${toTy}; ${fromTx} ${fromTy}" keyTimes="0; 0.5; 1"` : `from="${fromTx} ${fromTy}" to="${toTx} ${toTy}"`} />`;
+            
+            animations += `<animateTransform attributeName="transform" type="scale" additive="sum" 
+              begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" 
+              ${autoReverse ? `values="${startScale}; ${endScale}; ${startScale}" keyTimes="0; 0.5; 1"` 
+              : `from="${startScale}" to="${endScale}"`} />`;
+              
+            animations += `<animateTransform attributeName="transform" type="translate" additive="sum" 
+              begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" 
+              ${autoReverse ? `values="${fromTx} ${fromTy}; ${toTx} ${toTy}; ${fromTx} ${fromTy}" keyTimes="0; 0.5; 1"` 
+              : `from="${fromTx} ${fromTy}" to="${toTx} ${toTy}"`} />`;
             break;
           }
           case 'rotate': {
@@ -164,27 +199,91 @@ const App = {
             const scaledCy = cy * imageScale;
             const from = `0 ${scaledCx} ${scaledCy}`;
             const to = `${degrees} ${scaledCx} ${scaledCy}`;
-            animations += `<animateTransform attributeName="transform" type="rotate" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${from}; ${to}; ${from}" keyTimes="0; 0.5; 1"` : `from="${from}" to="${to}"`} />`;
+            animations += `<animateTransform attributeName="transform" type="rotate" additive="sum" 
+              begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" 
+              ${autoReverse ? `values="${from}; ${to}; ${from}" keyTimes="0; 0.5; 1"` 
+              : `from="${from}" to="${to}"`} />`;
             break;
           }
           case 'opacity': {
             const { startOpacity, endOpacity, autoReverse } = block.parameters;
             const baseOpacity = image.baseOpacity || 1;
-            animations += `<animate attributeName="opacity" fill="freeze" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${startOpacity * baseOpacity}; ${endOpacity * baseOpacity}; ${startOpacity * baseOpacity}" keyTimes="0; 0.5; 1"` : `from="${startOpacity * baseOpacity}" to="${endOpacity * baseOpacity}"`} />`;
+            animations += `<animate attributeName="opacity" fill="freeze" 
+              begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" 
+              ${autoReverse ? `values="${startOpacity * baseOpacity}; ${endOpacity * baseOpacity}; ${startOpacity * baseOpacity}" keyTimes="0; 0.5; 1"` 
+              : `from="${startOpacity * baseOpacity}" to="${endOpacity * baseOpacity}"`} />`;
             break;
           }
         }
         return animations;
       }).join('');
+
       const opacityStyle = image.baseOpacity ? `opacity="${image.baseOpacity}"` : '';
       const filterStyle = image.blendMode && image.blendMode !== 'normal' ? `style="mix-blend-mode: ${image.blendMode}"` : '';
-      return `<g ${opacityStyle} ${filterStyle} transform="translate(${x}, ${y})"><image href="${image.base64Data}" width="${scaledWidth}" height="${scaledHeight}" x="0" y="0">${animationElements}</image></g>`;
+      
+      return `<g ${opacityStyle} ${filterStyle} transform="translate(${x}, ${y})">
+        <image href="${image.base64Data}" width="${scaledWidth}" height="${scaledHeight}" x="0" y="0">
+          ${animationElements}
+        </image>
+      </g>`;
     }).join('');
-    return `<svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${svgWidth}" height="${svgHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
+
+    return `<svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" 
+      preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+      <defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${svgWidth}" height="${svgHeight}" /></clipPath></defs>
+      <g clip-path="url(#canvas-clip)">${imageElements}</g>
+    </svg>`;
   },
+
+  toggleZoomPointSetting() {
+    if (!this.selectedBlock || this.selectedBlock.type !== 'zoom') {
+      alert('Please select a Zoom animation block first.');
+      return;
+    }
+    this.isSettingZoomPoint = !this.isSettingZoomPoint;
+    this.updatePreview();
+  },
+
+  handleImageClick(event) {
+    if (!this.isSettingZoomPoint || !this.contextMenu.dialogImage) return;
+    
+    const img = event.currentTarget;
+    const rect = img.getBoundingClientRect();
+    const naturalWidth = this.contextMenu.dialogImage.width;
+    const naturalHeight = this.contextMenu.dialogImage.height;
+    
+    const scale = Math.min(
+      rect.width / naturalWidth,
+      rect.height / naturalHeight
+    ) * this.dialogZoom;
+    
+    const offsetX = (rect.width - naturalWidth * scale) / 2;
+    const offsetY = (rect.height - naturalHeight * scale) / 2;
+    
+    const x = Math.max(0, Math.min(
+      naturalWidth,
+      (event.clientX - rect.left - offsetX) / scale
+    ));
+    
+    const y = Math.max(0, Math.min(
+      naturalHeight,
+      (event.clientY - rect.top - offsetY) / scale
+    ));
+    
+    this.selectedBlock.parameters.zoomX = Math.round(x);
+    this.selectedBlock.parameters.zoomY = Math.round(y);
+    this.selectedBlock.parameters.useCenter = false;
+    this.isSettingZoomPoint = false;
+    this.updatePreview();
+  },
+
   async handleImageUpload(e) {
     const files = e.target.files;
-    if (this.project.images.length + files.length > 10) { alert("Error: You can upload a maximum of 10 images."); return; }
+    if (this.project.images.length + files.length > 10) { 
+      alert("Error: You can upload a maximum of 10 images."); 
+      return; 
+    }
+    
     const readPromises = [...files].map((file, i) => {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -208,6 +307,7 @@ const App = {
         reader.readAsDataURL(file);
       });
     });
+    
     try {
       const newImages = await Promise.all(readPromises);
       this.project.images.push(...newImages);
@@ -220,6 +320,7 @@ const App = {
       alert("There was an error loading one or more images.");
     }
   },
+
   selectImage(id) {
     if (this.project.selectedImageId !== id) {
       this.project.selectedImageId = id;
@@ -228,40 +329,53 @@ const App = {
       this.updatePreview();
     }
   },
+
   deleteImage(id) {
     const imageToDelete = this.project.images.find(img => img.id === id);
     if (!imageToDelete) return;
+    
     if (imageToDelete.animationBlocks.length > 0) {
       this.contextMenu.showConfirmDialog = true;
       this.contextMenu.targetId = id;
       return;
     }
+    
     const deletedOrder = imageToDelete.order;
     this.project.images = this.project.images.filter(img => img.id !== id);
-    this.project.images.forEach(img => { if (img.order > deletedOrder) img.order--; });
+    this.project.images.forEach(img => { 
+      if (img.order > deletedOrder) img.order--; 
+    });
+    
     if (this.project.selectedImageId === id) {
       this.project.selectedImageId = this.project.images.length > 0 ? this.sortedImages[0].id : null;
     }
     this.closeContextMenu();
     this.updatePreview();
   },
+
   confirmDeleteImage() {
     const id = this.contextMenu.targetId;
     const imageToDelete = this.project.images.find(img => img.id === id);
     if (!imageToDelete) return;
+    
     const deletedOrder = imageToDelete.order;
     this.project.images = this.project.images.filter(img => img.id !== id);
-    this.project.images.forEach(img => { if (img.order > deletedOrder) img.order--; });
+    this.project.images.forEach(img => { 
+      if (img.order > deletedOrder) img.order--; 
+    });
+    
     if (this.project.selectedImageId === id) {
       this.project.selectedImageId = this.project.images.length > 0 ? this.sortedImages[0].id : null;
     }
     this.closeContextMenu();
     this.updatePreview();
   },
+
   cancelDeleteImage() {
     this.contextMenu.showConfirmDialog = false;
     this.contextMenu.targetId = null;
   },
+
   saveProject() {
     const projectJSON = JSON.stringify(this.project, null, 2);
     const blob = new Blob([projectJSON], { type: 'application/json' });
@@ -272,9 +386,11 @@ const App = {
     URL.revokeObjectURL(a.href);
     alert('Project saved successfully!');
   },
+
   handleProjectLoad(e) {
     const file = e.target.files[0];
     if (!file) return;
+    
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
@@ -292,32 +408,53 @@ const App = {
     };
     reader.readAsText(file);
   },
+
   exportSVG() {
     const svgData = this.getSvgString();
     const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.style.display = 'none'; a.href = url; a.download = 'animated-scene.svg';
-    document.body.appendChild(a); a.click();
-    URL.revokeObjectURL(url); document.body.removeChild(a);
+    a.style.display = 'none'; 
+    a.href = url; 
+    a.download = 'animated-scene.svg';
+    document.body.appendChild(a); 
+    a.click();
+    URL.revokeObjectURL(url); 
+    document.body.removeChild(a);
   },
+
   async exportVideo(format) {
-    if (!BACKEND_URL) { alert('Backend URL is not configured.'); return; }
+    if (!BACKEND_URL) { 
+      alert('Backend URL is not configured.'); 
+      return; 
+    }
     this.isRendering = true;
+    
     try {
       const svgData = this.getSvgString();
       const response = await fetch(`${BACKEND_URL}/api/render-${format}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ svg: svgData, duration: this.timelineDuration })
+        body: JSON.stringify({ 
+          svg: svgData, 
+          duration: this.timelineDuration 
+        })
       });
-      if (!response.ok) { throw new Error(`Server responded with status: ${response.status} ${await response.text()}`); }
+      
+      if (!response.ok) { 
+        throw new Error(`Server responded with status: ${response.status} ${await response.text()}`); 
+      }
+      
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.style.display = 'none'; a.href = url; a.download = `animation.${format}`;
-      document.body.appendChild(a); a.click();
-      URL.revokeObjectURL(url); document.body.removeChild(a);
+      a.style.display = 'none'; 
+      a.href = url; 
+      a.download = `animation.${format}`;
+      document.body.appendChild(a); 
+      a.click();
+      URL.revokeObjectURL(url); 
+      document.body.removeChild(a);
     } catch (error) {
       console.error('Export failed:', error);
       alert(`Export failed: ${error.message}`);
@@ -325,18 +462,33 @@ const App = {
       this.isRendering = false;
     }
   },
-  onDragStart(id) { this.draggedItemId = id; },
-  onDragOver(id) { this.dragOverItemId = id; },
-  onDragLeave() { this.dragOverItemId = null; },
+
+  onDragStart(id) { 
+    this.draggedItemId = id; 
+  },
+
+  onDragOver(id) { 
+    this.dragOverItemId = id; 
+  },
+
+  onDragLeave() { 
+    this.dragOverItemId = null; 
+  },
+
   onDrop(targetId) {
     if (!this.draggedItemId || this.draggedItemId === targetId) {
-      this.draggedItemId = null; this.dragOverItemId = null; return;
+      this.draggedItemId = null; 
+      this.dragOverItemId = null; 
+      return;
     }
+    
     const draggedImage = this.project.images.find(p => p.id === this.draggedItemId);
     const targetImage = this.project.images.find(p => p.id === targetId);
+    
     if (draggedImage && targetImage) {
       const fromOrder = draggedImage.order;
       const toOrder = targetImage.order;
+      
       this.project.images.forEach(img => {
         if (img.id === draggedImage.id) {
           img.order = toOrder;
@@ -347,9 +499,12 @@ const App = {
         }
       });
     }
-    this.draggedItemId = null; this.dragOverItemId = null;
+    
+    this.draggedItemId = null; 
+    this.dragOverItemId = null;
     this.updatePreview();
   },
+
   openContextMenu(event, imageId) {
     event.preventDefault();
     this.contextMenu.targetId = imageId;
@@ -361,6 +516,7 @@ const App = {
     this.dialogZoom = 1;
     window.addEventListener('click', this.handleGlobalClick, { once: true });
   },
+
   openImageDialog(imageId) {
     this.contextMenu.targetId = imageId;
     this.contextMenu.visible = false;
@@ -373,6 +529,7 @@ const App = {
     this.dialogZoom = 1;
     this.isSettingZoomPoint = false;
   },
+
   closeContextMenu() {
     this.contextMenu.visible = false;
     this.contextMenu.showImageDialog = false;
@@ -382,11 +539,14 @@ const App = {
     this.dialogZoom = 1;
     this.isSettingZoomPoint = false;
   },
+
   handleGlobalClick(event) {
     const dialog = document.querySelector('.image-dialog');
     const contextMenu = document.querySelector('.context-menu');
     const confirmDialog = document.querySelector('.confirm-dialog');
-    if (dialog && dialog.getBoundingClientRect().top >= 0 && dialog.getBoundingClientRect().bottom <= window.innerHeight &&
+    
+    if (dialog && dialog.getBoundingClientRect().top >= 0 && 
+        dialog.getBoundingClientRect().bottom <= window.innerHeight &&
         !dialog.contains(event.target) && 
         (!contextMenu || !contextMenu.contains(event.target)) && 
         (!confirmDialog || !confirmDialog.contains(event.target))) {
@@ -394,6 +554,7 @@ const App = {
     }
     window.addEventListener('click', this.handleGlobalClick, { once: true });
   },
+
   startDialogDrag(event) {
     this.isDraggingDialog = true;
     const dialog = document.querySelector('.image-dialog');
@@ -403,19 +564,31 @@ const App = {
     document.addEventListener('mousemove', this.handleDialogDrag);
     document.addEventListener('mouseup', this.stopDialogDrag, { once: true });
   },
+
   handleDialogDrag(event) {
     if (!this.isDraggingDialog) return;
+    
     const x = event.clientX - this.dragOffsetX;
     const y = event.clientY - this.dragOffsetY;
     const minY = 10;
     const maxY = window.innerHeight - 100;
-    this.contextMenu.dialogX = Math.max(0, Math.min(x, window.innerWidth - this.contextMenu.dialogWidth * window.innerWidth / 100));
-    this.contextMenu.dialogY = Math.max(minY, Math.min(y, maxY));
+    
+    this.contextMenu.dialogX = Math.max(
+      0, 
+      Math.min(x, window.innerWidth - this.contextMenu.dialogWidth * window.innerWidth / 100)
+    );
+    
+    this.contextMenu.dialogY = Math.max(
+      minY, 
+      Math.min(y, maxY)
+    );
   },
+
   stopDialogDrag() {
     this.isDraggingDialog = false;
     document.removeEventListener('mousemove', this.handleDialogDrag);
   },
+
   startDialogResize(event) {
     this.isResizingDialog = true;
     const dialog = document.querySelector('.image-dialog');
@@ -425,35 +598,44 @@ const App = {
     document.addEventListener('mousemove', this.handleDialogResize);
     document.addEventListener('mouseup', this.stopDialogResize, { once: true });
   },
+
   handleDialogResize(event) {
     if (!this.isResizingDialog) return;
+    
     const newWidth = (event.clientX - this.resizeOffsetX - this.contextMenu.dialogX) / window.innerWidth * 100;
     const newHeight = (event.clientY - this.resizeOffsetY - this.contextMenu.dialogY) / window.innerHeight * 100;
+    
     this.contextMenu.dialogWidth = Math.max(30, Math.min(newWidth, 80));
     this.contextMenu.dialogHeight = Math.max(40, Math.min(newHeight, 90));
   },
+
   stopDialogResize() {
     this.isResizingDialog = false;
     document.removeEventListener('mousemove', this.handleDialogResize);
   },
+
   updateImageProperties(imageId, property, value) {
     const image = this.project.images.find(img => img.id === imageId);
-    if (image) {
-      if (property === 'width' || property === 'height') {
-        image[property] = Number(value);
-        if (property === 'width') {
-          image.height = Math.round((image.height / image.width) * value);
-        } else {
-          image.width = Math.round((image.width / image.height) * value);
-        }
-      } else if (property === 'baseOpacity') {
-        image[property] = Math.min(1, Math.max(0, Number(value)));
+    if (!image) return;
+    
+    if (property === 'width' || property === 'height') {
+      image[property] = Number(value);
+      if (property === 'width') {
+        image.height = Math.round((image.height / image.width) * value);
       } else {
-        image[property] = value;
+        image.width = Math.round((image.width / image.height) * value);
       }
-      this.updatePreview();
+    } 
+    else if (property === 'baseOpacity') {
+      image[property] = Math.min(1, Math.max(0, Number(value)));
+    } 
+    else {
+      image[property] = value;
     }
+    
+    this.updatePreview();
   },
+
   zoomDialogImage(direction) {
     if (direction === 'in') {
       this.dialogZoom = Math.min(this.dialogZoom + 0.1, 3);
@@ -461,46 +643,41 @@ const App = {
       this.dialogZoom = Math.max(this.dialogZoom - 0.1, 0.5);
     }
   },
-  handleImageClick(event) {
-    if (!this.selectedBlock || this.selectedBlock.type !== 'zoom') {
-      alert('Please select a Zoom animation block first.');
-      return;
-    }
-    this.selectedBlock.parameters.useCenter = false;
-    const img = event.currentTarget;
-    const rect = img.getBoundingClientRect();
-    const imageScale = Math.min(rect.width / this.contextMenu.dialogImage.width, rect.height / this.contextMenu.dialogImage.height);
-    const x = (event.clientX - rect.left) / imageScale / this.dialogZoom;
-    const y = (event.clientY - rect.top) / imageScale / this.dialogZoom;
-    this.selectedBlock.parameters.zoomX = Math.round(Math.max(0, Math.min(x, this.contextMenu.dialogImage.width)));
-    this.selectedBlock.parameters.zoomY = Math.round(Math.max(0, Math.min(y, this.contextMenu.dialogImage.height)));
-    this.updatePreview();
-  },
+
   getBlocksForRow(rowIndex) {
     if (!this.selectedImage) return [];
     return this.selectedImage.animationBlocks.filter(b => b.rowIndex === rowIndex);
   },
+
   getImageForBlock(block) {
     return this.project.images.find(img => img.id === block.imageId);
   },
+
   addAnimationBlock(type) {
     if (!this.selectedImage) return;
+    
     const allBlocks = this.selectedImage.animationBlocks;
     let targetRow = 0;
+    
     for (let i = 0; i < 3; i++) {
       const blocksOnRow = allBlocks.filter(b => b.rowIndex === i);
-      const hasOverlap = blocksOnRow.some(b => (0 < b.startTime + b.duration) && (2 > b.startTime));
+      const hasOverlap = blocksOnRow.some(b => 
+        (0 < b.startTime + b.duration) && (2 > b.startTime)
+      );
+      
       if (!hasOverlap) {
         targetRow = i;
         break;
       }
     }
+    
     const defaultParams = {
       pan: { direction: 'right', distance: 100, autoReverse: true },
       zoom: { startScale: 1, endScale: 1.5, autoReverse: true, useCenter: true, zoomX: 0, zoomY: 0 },
       rotate: { degrees: 90, autoReverse: false, useCenter: true, rotateX: 0, rotateY: 0 },
       opacity: { startOpacity: 1, endOpacity: 0, autoReverse: true },
     };
+    
     const newBlock = {
       id: `anim_${Date.now()}`,
       type,
@@ -511,21 +688,26 @@ const App = {
       imageId: this.selectedImage.id,
       parameters: defaultParams[type],
     };
+    
     this.selectedImage.animationBlocks.push(newBlock);
     this.selectBlock(newBlock);
     this.updatePreview();
   },
+
   deleteAnimationBlock(id) {
     this.project.images.forEach(img => {
       img.animationBlocks = img.animationBlocks.filter(b => b.id !== id);
     });
+    
     if (this.selectedBlock && this.selectedBlock.id === id) {
       this.selectedBlock = null;
     }
     this.updatePreview();
   },
+
   selectBlock(block) {
     if (!block) return;
+    
     const image = this.getImageForBlock(block);
     if (image) {
       const originalBlock = image.animationBlocks.find(b => b.id === block.id);
@@ -536,6 +718,7 @@ const App = {
       }
     }
   },
+
   onBlockDragStart(event, block) {
     event.dataTransfer.setData('text/plain', block.id);
     this.draggedBlockInfo = {
@@ -544,6 +727,7 @@ const App = {
     };
     event.dataTransfer.effectAllowed = 'move';
   },
+
   onBlockDragOver(event) {
     event.preventDefault();
     if (!this.draggedBlockInfo || !this.$refs.timelineWrapper) return;
@@ -554,7 +738,14 @@ const App = {
     const dropY = event.clientY - timelineRect.top;
     
     const rawTime = (dropX / timelineRect.width) * this.timelineDuration;
-    const snappedTime = Math.max(0, Math.min(this.timelineDuration - this.draggedBlockInfo.block.duration, Math.round(rawTime * 10) / 10));
+    const snappedTime = Math.max(
+      0, 
+      Math.min(
+        this.timelineDuration - this.draggedBlockInfo.block.duration, 
+        Math.round(rawTime * 10) / 10
+      )
+    );
+    
     const targetRowIndex = Math.min(2, Math.max(0, Math.floor(dropY / rowHeight)));
     
     this.dragPlaceholder = {
@@ -565,14 +756,17 @@ const App = {
       height: `${rowHeight}px`
     };
   },
+
   onBlockDragLeave(event) {
     if (!this.draggedBlockInfo || !this.$refs.timelineWrapper) return;
+    
     const timelineRect = this.$refs.timelineWrapper.getBoundingClientRect();
     if (event.clientX <= timelineRect.left || event.clientX >= timelineRect.right || 
         event.clientY <= timelineRect.top || event.clientY >= timelineRect.bottom) {
       this.dragPlaceholder.visible = false;
     }
   },
+
   onBlockDrop(event) {
     event.preventDefault();
     if (!this.draggedBlockInfo || !this.$refs.timelineWrapper) return;
@@ -583,19 +777,31 @@ const App = {
     const dropY = event.clientY - timelineRect.top;
     
     const rawTime = (dropX / timelineRect.width) * this.timelineDuration;
-    const snappedTime = Math.max(0, Math.min(this.timelineDuration - this.draggedBlockInfo.block.duration, Math.round(rawTime * 10) / 10));
+    const snappedTime = Math.max(
+      0, 
+      Math.min(
+        this.timelineDuration - this.draggedBlockInfo.block.duration, 
+        Math.round(rawTime * 10) / 10
+      )
+    );
+    
     const targetRowIndex = Math.min(2, Math.max(0, Math.floor(dropY / rowHeight)));
     
     const block = this.draggedBlockInfo.block;
     const image = this.getImageForBlock(block);
+    
     if (image) {
       const blockToUpdate = image.animationBlocks.find(b => b.id === block.id);
       if (blockToUpdate) {
-        const blocksOnRow = image.animationBlocks.filter(b => b.rowIndex === targetRowIndex && b.id !== block.id);
+        const blocksOnRow = image.animationBlocks.filter(b => 
+          b.rowIndex === targetRowIndex && b.id !== block.id
+        );
+        
         const hasOverlap = blocksOnRow.some(b => 
           (snappedTime < b.startTime + b.duration) && 
           (snappedTime + block.duration > b.startTime)
         );
+        
         if (hasOverlap) {
           this.overlapError = true;
           setTimeout(() => this.overlapError = false, 2000);
