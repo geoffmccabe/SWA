@@ -31,13 +31,16 @@ const App = {
   draggedItemId: null,
   draggedBlockInfo: null,
   dragOverItemId: null,
-  contextMenu: { visible: false, x: 0, y: 0, targetId: null, showImageDialog: false, dialogImage: null, showConfirmDialog: false, dialogX: 0, dialogY: 0 },
+  contextMenu: { visible: false, x: 0, y: 0, targetId: null, showImageDialog: false, dialogImage: null, showConfirmDialog: false, dialogX: 0, dialogY: 0, dialogWidth: 60, dialogHeight: 80 },
   livePreviewSvgUrl: '',
   dragPlaceholder: { visible: false, left: '0px', width: '0px', top: '0px', height: '0px' },
   dialogZoom: 1,
   isDraggingDialog: false,
+  isResizingDialog: false,
   dragOffsetX: 0,
   dragOffsetY: 0,
+  resizeOffsetX: 0,
+  resizeOffsetY: 0,
 
   get sortedImages() {
     return [...this.project.images].sort((a, b) => a.order - b.order);
@@ -72,7 +75,9 @@ const App = {
   get imageDialogStyles() {
     return {
       top: `${this.contextMenu.dialogY}px`,
-      left: `${this.contextMenu.dialogX}px`
+      left: `${this.contextMenu.dialogX}px`,
+      width: `${this.contextMenu.dialogWidth}vw`,
+      maxHeight: `${this.contextMenu.dialogHeight}vh`
     };
   },
   animationBlockStyles(block) {
@@ -147,7 +152,7 @@ const App = {
           case 'rotate': {
             const { degrees, autoReverse, useCenter, rotateX, rotateY } = block.parameters;
             const cx = useCenter ? scaledWidth / 2 : rotateX * imageScale;
-            const cy = useCenter ? scaledHeight / 2 : zoomY * imageScale;
+            const cy = useCenter ? scaledHeight / 2 : rotateY * imageScale;
             const from = `0 ${cx} ${cy}`;
             const to = `${degrees} ${cx} ${cy}`;
             animations += `<animateTransform attributeName="transform" type="rotate" additive="sum" begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" ${autoReverse ? `values="${from}; ${to}; ${from}" keyTimes="0; 0.5; 1"` : `from="${from}" to="${to}"`} />`;
@@ -300,6 +305,7 @@ const App = {
       const a = document.createElement('a');
       a.style.display = 'none'; a.href = url; a.download = `animation.${format}`;
       document.body.appendChild(a); a.click();
+      URL.revokeObjectURL(url); document.body.removeChild(a);
     } catch (error) {
       console.error('Export failed:', error);
       alert(`Export failed: ${error.message}`);
@@ -348,8 +354,10 @@ const App = {
     this.contextMenu.visible = false;
     this.contextMenu.showImageDialog = true;
     this.contextMenu.dialogImage = this.project.images.find(img => img.id === imageId);
-    this.contextMenu.dialogX = window.innerWidth * 0.05; // 5% from left
-    this.contextMenu.dialogY = window.innerHeight * 0.1; // 10% from top
+    this.contextMenu.dialogX = window.innerWidth * 0.05;
+    this.contextMenu.dialogY = window.innerHeight * 0.1;
+    this.contextMenu.dialogWidth = 60;
+    this.contextMenu.dialogHeight = 80;
     this.dialogZoom = 1;
     window.addEventListener('click', this.handleGlobalClick, { once: true });
   },
@@ -385,12 +393,32 @@ const App = {
     if (!this.isDraggingDialog) return;
     const x = event.clientX - this.dragOffsetX;
     const y = event.clientY - this.dragOffsetY;
-    this.contextMenu.dialogX = Math.max(0, Math.min(x, window.innerWidth - 0.6 * window.innerWidth));
-    this.contextMenu.dialogY = Math.max(0, Math.min(y, window.innerHeight - 0.8 * window.innerHeight));
+    this.contextMenu.dialogX = Math.max(0, Math.min(x, window.innerWidth - this.contextMenu.dialogWidth * window.innerWidth / 100));
+    this.contextMenu.dialogY = Math.max(0, Math.min(y, window.innerHeight - this.contextMenu.dialogHeight * window.innerHeight / 100));
   },
   stopDialogDrag() {
     this.isDraggingDialog = false;
     document.removeEventListener('mousemove', this.handleDialogDrag);
+  },
+  startDialogResize(event) {
+    this.isResizingDialog = true;
+    const dialog = document.querySelector('.image-dialog');
+    const rect = dialog.getBoundingClientRect();
+    this.resizeOffsetX = event.clientX - rect.right;
+    this.resizeOffsetY = event.clientY - rect.bottom;
+    document.addEventListener('mousemove', this.handleDialogResize);
+    document.addEventListener('mouseup', this.stopDialogResize, { once: true });
+  },
+  handleDialogResize(event) {
+    if (!this.isResizingDialog) return;
+    const newWidth = (event.clientX - this.resizeOffsetX - this.contextMenu.dialogX) / window.innerWidth * 100;
+    const newHeight = (event.clientY - this.resizeOffsetY - this.contextMenu.dialogY) / window.innerHeight * 100;
+    this.contextMenu.dialogWidth = Math.max(30, Math.min(newWidth, 80));
+    this.contextMenu.dialogHeight = Math.max(40, Math.min(newHeight, 90));
+  },
+  stopDialogResize() {
+    this.isResizingDialog = false;
+    document.removeEventListener('mousemove', this.handleDialogResize);
   },
   updateImageProperties(imageId, property, value) {
     const image = this.project.images.find(img => img.id === imageId);
@@ -403,7 +431,7 @@ const App = {
           image.width = Math.round((image.width / image.height) * value);
         }
       } else if (property === 'baseOpacity') {
-        image[property] = Number(value);
+        image[property] = Math.min(1, Math.max(0, Number(value) / 100));
       } else {
         image[property] = value;
       }
@@ -514,7 +542,7 @@ const App = {
       this.dragPlaceholder.visible = false;
     }
   },
-  onBlockDragDrop(event) {
+  onBlockDrop(event) {
     event.preventDefault();
     if (!this.draggedBlockInfo || !this.$refs.timelineWrapper) return;
     
