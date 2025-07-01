@@ -73,7 +73,7 @@
                 <span>{{ contextMenu.dialogImage.name }}</span>
             </div>
             <div class="image-dialog-image">
-                <img :src="contextMenu.dialogImage.base64Data" :style="dialogImageStyles">
+                <img :src="contextMenu.dialogImage.base64Data" :style="dialogImageStyles" @click.stop="handleImageClick($event)">
             </div>
             <hr class="image-dialog-divider">
             <div class="image-dialog-controls">
