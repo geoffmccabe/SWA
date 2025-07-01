@@ -26,11 +26,11 @@
         <div class="dimensions-grid">
             <div>
                 <label>Width (px)</label>
-                <input type="number" v-model="project.projectWidth" @input="updatePreview">
+                <input type="number" v-model.number="project.projectWidth" @input="updatePreview">
             </div>
             <div>
                 <label>Height (px)</label>
-                <input type="number" v-model="project.projectHeight" @input="updatePreview">
+                <input type="number" v-model.number="project.projectHeight" @input="updatePreview">
             </div>
         </div>
     </div>
