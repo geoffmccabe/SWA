@@ -129,12 +129,6 @@ input, select {
   display: flex;
   gap: 10px;
 }
-.control-group.button-group button {
-  width: auto;
-  padding: 3px 8px;
-  font-size: 12px;
-  line-height: 1.2;
-}
 .control-group h3 { 
   margin-top: 0; 
   margin-bottom: 15px; 
@@ -209,11 +203,11 @@ input, select {
   position: absolute;
   top: 4px;
   right: 4px;
-  width: calc(10% * 0.2 / 3 * 0.4 * 0.4);
-  aspect-ratio: 1 / 1;
+  width: calc(10% * 0.2 / 3 * 0.4 * 0.4 * 0.4);
+  height: calc(10% * 0.2 / 3 * 0.4 * 0.4 * 0.4);
   background-color: var(--color-button-grey);
   color: white;
-  font-size: 10px;
+  font-size: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -292,7 +286,6 @@ input, select {
   border: none;
   border-radius: 3px;
   cursor: pointer;
-  position: relative;
 }
 .dialog-close::before {
   content: '';
@@ -331,6 +324,11 @@ input, select {
 }
 .image-dialog-controls .control-group {
   flex: 1 1 150px;
+}
+.image-dialog-controls .button-group button {
+  height: auto;
+  padding: 8px;
+  line-height: 1;
 }
 .image-dialog-controls button {
   width: auto;
