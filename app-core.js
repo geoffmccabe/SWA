@@ -187,7 +187,7 @@ const App = {
             base64Data: event.target.result,
             order: this.project.images.length + i,
             animationBlocks: [],
-            baseOpacity: 100,
+            baseOpacity: 1,
             blendMode: 'normal',
             width: img.width,
             height: img.height
@@ -431,7 +431,7 @@ const App = {
           image.width = Math.round((image.width / image.height) * value);
         }
       } else if (property === 'baseOpacity') {
-        image[property] = Math.min(100, Math.max(0, Number(value))) / 100;
+        image[property] = Math.min(1, Math.max(0, Number(value)));
       } else {
         image[property] = value;
       }
@@ -524,7 +524,7 @@ const App = {
     
     const rawTime = (dropX / timelineRect.width) * this.timelineDuration;
     const snappedTime = Math.max(0, Math.min(this.timelineDuration - this.draggedBlockInfo.block.duration, Math.round(rawTime * 10) / 10));
-    const targetRowIndex = Math.min(2, Max(0, Math.floor(dropY / rowHeight)));
+    const targetRowIndex = Math.min(2, Math.max(0, Math.floor(dropY / rowHeight)));
     
     this.dragPlaceholder = {
       visible: true,
