@@ -206,42 +206,6 @@ const App = {
         this.project.selectedImageId禁止
 
 
-### Analysis of Issues
-2. **[x] Button Active Area**:
-   - **Problem**: Only the top 25% of the `[x]` button is clickable, and the previous fix incorrectly increased the visible button size to 48x48px instead of expanding the active area while keeping the button at 24x24px.
-   - **Fix**: Restore `.dialog-close` to 24x24px in `styles.css` and use a `::before` pseudo-element to create a 48x48px clickable area, keeping the visible size unchanged.
-3. **Oversized + Icons**:
-   - **Problem**: The `+` buttons on thumbnails are too large (`width: calc(10% * 0.2 / 3 * 0.4)`). Need to reduce width/height by 60% from the current size, maintaining the `+` font size.
-   - **Fix**: Update `.thumbnail-plus` in `styles.css` to `width: calc(10% * 0.2 / 3 * 0.4 * 0.4)` for another 60% reduction.
-4. **Opacity Input Issues**:
-   - **Problem**: The opacity input doesn’t default to 100, is hard to edit, changes unexpectedly, and uses 0-1 values instead of 0-100%. It should default to 100, use a 0-100 range, clamp values >100, and be labeled “Opacity (%)”.
-   - **Fix**: Update `ui-top.html` to set `value="100"` and fix `v-model` in `app-core.js` to scale 0-100 to 0-1 internally, ensuring smooth updates and clamping.
-5. **Four Horizontal Lines**:
-   - **Problem**: Multiple `<hr>` elements persist below the image despite repeated requests for a single full-width line, likely due to a rendering or duplication issue.
-   - **Fix**: Ensure exactly one `<hr class="image-dialog-divider">` in `ui-top.html` and confirm `.image-dialog-divider` in `styles.css` spans full width.
-9. **Button Heights**:
-   - **Problem**: The Zoom +, Zoom -, and Delete buttons are too tall, and the previous fix failed to reduce their height.
-   - **Fix**: Update `.control-group.button-group button` in `styles.css` to reduce padding to `3px 8px` (from `5px 8px`), achieving ~40% height reduction.
-10. **Draggable Bottom-Right Corner**: Already working, no changes needed.
-11. **Movable Panel**: Already working, no changes needed.
-12. **Panel Size**: Already correct, no changes needed.
-
-### What to Do
-1. **Replace Files**: Replace `app-core.js`, `ui-top.html`, and `styles.css` in your repo’s root with the files below. Keep `index.html`, `ui-bottom.html`, `old-index.html`, and `/backend/` unchanged.
-2. **Push to GitHub**: Push to your repo for Railway auto-deploy.
-3. **Test**: Visit `https://swa-exporter.up.railway.app/`. Check if:
-   - The `[x]` button is 24x24px visually but has a 48x48px clickable area.
-   - The `+` buttons are 60% smaller in width/height, grey with white `+`.
-   - The opacity input defaults to 100, uses 0-100 range, clamps >100, is labeled “Opacity (%)”, and updates smoothly.
-   - The image dialog has exactly one full-width horizontal line.
-   - Zoom +, Zoom -, and Delete buttons are ~40% shorter vertically.
-   - Features (image upload, timeline, save, drag-and-drop, zoom animations, resize handle) work.
-   Share any new console errors if issues persist.
-4. **Backup**: Keep `old-index.html` as a fallback.
-
-### Updated Files
-#### `app-core.js`
-<xaiArtifact artifact_id="9888ffa3-03eb-4545-82e6-545761b0c8fa" artifact_version_id="def0d6b0-022e-47db-9262-31c843bd5b2e" title="app-core.js" contentType="text/javascript">
 const { createApp } = PetiteVue;
 const BACKEND_URL = 'https://swa-exporter.up.railway.app';
 const BASE_URL = window.location.href.includes('railway') ? '/' : '';
