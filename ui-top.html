@@ -68,13 +68,13 @@
         <div class="image-dialog-content" @mousedown.stop="startDialogDrag">
             <button class="dialog-close" @click.stop="closeContextMenu">×</button>
             <div class="image-dialog-header">
-                <span>Layer {{ contextMenu.dialogImage.order + 1 }}</span>
+                <span style="font-weight: bold">Layer {{ contextMenu.dialogImage.order + 1 }}</span>
                 <span>{{ contextMenu.dialogImage.name }}</span>
             </div>
-            <hr class="image-dialog-divider">
             <div class="image-dialog-image">
                 <img :src="contextMenu.dialogImage.base64Data" :style="dialogImageStyles">
             </div>
+            <hr class="image-dialog-divider">
             <div class="image-dialog-controls">
                 <div class="control-group">
                     <label>Width (px)</label>
@@ -104,7 +104,7 @@
                 </div>
                 <div class="control-group">
                     <label>Opacity (%)</label>
-                    <input type="number" min="0" max="100" value="100" v-model.number="contextMenu.dialogImage.baseOpacity" @input.stop="updateImageProperties(contextMenu.dialogImage.id, 'baseOpacity', Math.min(100, Math.max(0, $event.target.value)))">
+                    <input type="number" min="0" max="100" v-model.number="contextMenu.dialogImage.baseOpacity" @input.stop="updateImageProperties(contextMenu.dialogImage.id, 'baseOpacity', Math.min(100, Math.max(0, $event.target.value)))">
                 </div>
                 <div class="control-group button-group">
                     <button @click.stop="zoomDialogImage('in')">Zoom +</button>
