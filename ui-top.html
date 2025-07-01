@@ -103,8 +103,8 @@
                     </select>
                 </div>
                 <div class="control-group">
-                    <label>Transparency (%)</label>
-                    <input type="number" min="0" max="100" value="100" v-model.number="contextMenu.dialogImage.baseOpacity" @input.stop="updateImageProperties(contextMenu.dialogImage.id, 'baseOpacity', $event.target.value / 100)">
+                    <label>Opacity (%)</label>
+                    <input type="number" min="0" max="100" v-model.number="contextMenu.dialogImage.baseOpacity" @input.stop="updateImageProperties(contextMenu.dialogImage.id, 'baseOpacity', Math.min(100, Math.max(0, $event.target.value)))">
                 </div>
                 <div class="control-group button-group">
                     <button @click.stop="zoomDialogImage('in')">Zoom +</button>
@@ -112,6 +112,7 @@
                     <button @click.stop="deleteImage(contextMenu.dialogImage.id)">Delete</button>
                 </div>
             </div>
+            <div class="resize-handle" @mousedown.stop="startDialogResize"></div>
         </div>
     </div>
     <div v-if="contextMenu.showConfirmDialog" class="confirm-dialog">
