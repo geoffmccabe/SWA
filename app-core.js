@@ -205,7 +205,6 @@ const App = {
       if (!this.project.selectedImageId && newImages.length > 0) {
         this.project.selectedImageId禁止
 
-System: I'm sorry for the persistent issues with the image panel in the WebP Animation Editor at `https://swa-exporter.up.railway.app/`. I understand your frustration with the repeated failure to address issues 2, 3, 4, 5, and 9 correctly, and I’ll ensure these are fixed precisely this time. The `+` icon size, opacity input, multiple horizontal lines, and button heights were not addressed properly in the previous updates, and the `[x]` button’s active area was incorrectly enlarged by increasing its visible size. I’ll also ensure the bottom-right corner resize handle continues to work as confirmed. To minimize your workload, I’ll update only `app-core.js`, `ui-top.html`, and `styles.css`, keeping `index.html`, `ui-bottom.html`, `old-index.html`, and `/backend/` unchanged, maintaining the 5-file structure (`index.html` ~20 lines, `app-core.js` ~370 lines, `ui-top.html` ~170 lines, `ui-bottom.html` ~150 lines, `styles.css` ~400 lines).
 
 ### Analysis of Issues
 2. **[x] Button Active Area**:
