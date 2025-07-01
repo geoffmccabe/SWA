@@ -64,8 +64,8 @@
         <div class="context-item" @click.stop="deleteImage(contextMenu.targetId)">Delete Image</div>
         <div class="context-item" @click.stop="contextMenu.showImageDialog = true">View Image</div>
     </div>
-    <div v-if="contextMenu.showImageDialog && contextMenu.dialogImage" class="image-dialog">
-        <div class="image-dialog-content">
+    <div v-if="contextMenu.showImageDialog && contextMenu.dialogImage" class="image-dialog" :style="imageDialogStyles">
+        <div class="image-dialog-content" @mousedown.stop="startDialogDrag">
             <button class="dialog-close" @click.stop="closeContextMenu">×</button>
             <div class="image-dialog-header">
                 <span>Layer {{ contextMenu.dialogImage.order + 1 }}</span>
@@ -104,9 +104,9 @@
                 </div>
                 <div class="control-group">
                     <label>Transparency (%)</label>
-                    <input type="range" min="0" max="100" v-model.number="contextMenu.dialogImage.baseOpacity" @input.stop="updateImageProperties(contextMenu.dialogImage.id, 'baseOpacity', $event.target.value / 100)">
+                    <input type="number" min="0" max="100" value="100" v-model.number="contextMenu.dialogImage.baseOpacity" @input.stop="updateImageProperties(contextMenu.dialogImage.id, 'baseOpacity', $event.target.value / 100)">
                 </div>
-                <div class="control-group">
+                <div class="control-group button-group">
                     <button @click.stop="zoomDialogImage('in')">Zoom +</button>
                     <button @click.stop="zoomDialogImage('out')">Zoom -</button>
                     <button @click.stop="deleteImage(contextMenu.dialogImage.id)">Delete</button>
