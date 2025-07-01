@@ -64,19 +64,19 @@
         <div class="context-item" @click.stop="deleteImage(contextMenu.targetId)">Delete Image</div>
         <div class="context-item" @click.stop="contextMenu.showImageDialog = true">View Image</div>
     </div>
-    <div v-if="contextMenu.showImageDialog && contextMenu.dialogImage" class="image-dialog" :style="imageDialogStyles">
+    <div v-if="contextMenu.showImageDialog && contextMenu.dialogImage" class="image-dialog" :class="{ 'zoom-point-mode': isSettingZoomPoint }" :style="imageDialogStyles">
         <div class="image-dialog-content">
             <div class="drag-handle" @mousedown.stop="startDialogDrag"></div>
-            <button v-if="contextMenu.dialogImage" class="dialog-close" @click.stop="closeContextMenu">×</button>
-            <div v-if="contextMenu.dialogImage" class="image-dialog-header">
+            <button class="dialog-close" @click.stop="closeContextMenu">×</button>
+            <div class="image-dialog-header">
                 <span style="font-weight: bold">Layer {{ contextMenu.dialogImage.order + 1 }}</span>
                 <span>{{ contextMenu.dialogImage.name }}</span>
             </div>
-            <div v-if="contextMenu.dialogImage" class="image-dialog-image">
+            <div class="image-dialog-image">
                 <img :src="contextMenu.dialogImage.base64Data" :style="dialogImageStyles" @click.stop="handleImageClick($event)">
             </div>
-            <hr v-if="contextMenu.dialogImage" class="image-dialog-divider">
-            <div v-if="contextMenu.dialogImage" class="image-dialog-controls">
+            <hr class="image-dialog-divider">
+            <div class="image-dialog-controls">
                 <div class="control-group">
                     <label>Width (px)</label>
                     <input type="number" v-model.number="contextMenu.dialogImage.width" @input.stop="updateImageProperties(contextMenu.dialogImage.id, 'width', $event.target.value)">
