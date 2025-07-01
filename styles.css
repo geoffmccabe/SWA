@@ -203,16 +203,16 @@ input, select {
   position: absolute;
   top: 4px;
   right: 4px;
-  width: calc(10% * 0.2 / 3 * 0.4 * 0.4 * 0.4);
-  height: calc(10% * 0.2 / 3 * 0.4 * 0.4 * 0.4);
+  width: calc(10% * 0.2 / 3 * 0.4 * 0.4 * 0.4 * 0.4);
+  height: calc(10% * 0.2 / 3 * 0.4 * 0.4 * 0.4 * 0.4);
   background-color: var(--color-button-grey);
   color: white;
-  font-size: 8px;
+  font-size: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 3px;
+  border-radius: 2px;
   cursor: pointer;
 }
 .thumbnail-plus:hover {
@@ -262,7 +262,6 @@ input, select {
   flex-direction: column;
   gap: 10px;
   overflow: auto;
-  cursor: move;
 }
 .image-dialog-header {
   display: flex;
@@ -286,6 +285,7 @@ input, select {
   border: none;
   border-radius: 3px;
   cursor: pointer;
+  z-index: 1000;
 }
 .dialog-close::before {
   content: '';
@@ -299,11 +299,23 @@ input, select {
 .dialog-close:hover {
   background-color: #666666;
 }
+.drag-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  cursor: move;
+}
 .image-dialog-divider {
   border: 0;
   border-top: 1px solid var(--color-border);
   margin: 10px 0;
   width: 100%;
+}
+.image-dialog-controls .control-group {
+  padding-top: 0;
+  border-top: none;
 }
 .image-dialog-image {
   flex-grow: 1;
