@@ -18,6 +18,11 @@
                         <div><label>End Scale</label><input type="number" step="0.1" v-model.number="selectedBlock.parameters.endScale" @input="updatePreview"></div>
                         <div><label>Center X (px)</label><input type="number" v-model.number="selectedBlock.parameters.zoomX" :disabled="selectedBlock.parameters.useCenter" @input="updatePreview"></div>
                         <div><label>Center Y (px)</label><input type="number" v-model.number="selectedBlock.parameters.zoomY" :disabled="selectedBlock.parameters.useCenter" @input="updatePreview"></div>
+                        <div class="control-group button-group">
+                            <button @click="toggleZoomPointSetting" :class="{ active: isSettingZoomPoint }">
+                                {{ isSettingZoomPoint ? 'Cancel Setting Point' : 'Set Zoom Point' }}
+                            </button>
+                        </div>
                     </template>
                     <template v-if="selectedBlock.type === 'rotate'">
                         <div><label>Degrees</label><input type="number" v-model.number="selectedBlock.parameters.degrees" @input="updatePreview"></div>
