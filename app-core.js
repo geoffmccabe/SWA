@@ -35,8 +35,11 @@ const App = {
   livePreviewSvgUrl: '',
   dragPlaceholder: { visible: false, left: '0px', width: '0px', top: '0px', height: '0px' },
   dialogZoom: 1,
+  dialogPanX: 0,
+  dialogPanY: 0,
   isDraggingDialog: false,
   isResizingDialog: false,
+  isDraggingImage: false,
   dragOffsetX: 0,
   dragOffsetY: 0,
   resizeOffsetX: 0,
@@ -71,7 +74,7 @@ const App = {
   },
   get dialogImageStyles() {
     return {
-      transform: `scale(${this.dialogZoom})`
+      transform: `translate(${this.dialogPanX}px, ${this.dialogPanY}px) scale(${this.dialogZoom})`
     };
   },
   get imageDialogStyles() {
@@ -83,6 +86,7 @@ const App = {
     };
   },
   animationBlockStyles(block) {
+    if (!block) return {};
     return {
       left: `${(block.startTime / this.timelineDuration) * 100}%`,
       width: `${(block.duration / this.timelineDuration) * 100}%`,
@@ -99,7 +103,6 @@ const App = {
   },
 
   updatePreview() {
-    console.log('updatePreview called');
     if (this.previewDebounce) clearTimeout(this.previewDebounce);
     this.previewDebounce = setTimeout(() => {
       const currentData = JSON.stringify({
@@ -146,15 +149,16 @@ const App = {
       const y = (svgHeight - scaledHeight) / 2;
 
       const animationElements = image.animationBlocks.map(block => {
+        if (!block) return '';
         const repeatCount = block.loop ? 'indefinite' : '1';
         let animations = '';
         
-        const blockStartTime = block.startTime;
-        const blockDuration = block.duration;
+        const blockStartTime = block.startTime || 0;
+        const blockDuration = block.duration || 1;
         
         switch (block.type) {
           case 'pan': {
-            const { direction, distance, autoReverse } = block.parameters;
+            const { direction, distance, autoReverse } = block.parameters || {};
             const pans = { 
               right: `${distance * imageScale} 0`, 
               left: `${-distance * imageScale} 0`, 
@@ -169,9 +173,10 @@ const App = {
             break;
           }
           case 'zoom': {
-            const { startScale, endScale, autoReverse, useCenter, zoomX, zoomY } = block.parameters;
+            const { startScale = 1, endScale = 1.5, autoReverse, useCenter, zoomX = 0, zoomY = 0 } = block.parameters || {};
             const cx = useCenter ? image.width / 2 : Math.max(0, Math.min(zoomX, image.width));
             const cy = useCenter ? image.height / 2 : Math.max(0, Math.min(zoomY, image.height));
+            
             const scaledCx = cx * imageScale;
             const scaledCy = cy * imageScale;
             
@@ -192,7 +197,7 @@ const App = {
             break;
           }
           case 'rotate': {
-            const { degrees, autoReverse, useCenter, rotateX, rotateY } = block.parameters;
+            const { degrees, autoReverse, useCenter, rotateX = 0, rotateY = 0 } = block.parameters || {};
             const cx = useCenter ? image.width / 2 : Math.max(0, Math.min(rotateX, image.width));
             const cy = useCenter ? image.height / 2 : Math.max(0, Math.min(rotateY, image.height));
             const scaledCx = cx * imageScale;
@@ -206,7 +211,7 @@ const App = {
             break;
           }
           case 'opacity': {
-            const { startOpacity, endOpacity, autoReverse } = block.parameters;
+            const { startOpacity = 1, endOpacity = 0, autoReverse } = block.parameters || {};
             const baseOpacity = image.baseOpacity || 1;
             animations += `<animate attributeName="opacity" fill="freeze" 
               begin="${blockStartTime}s" dur="${blockDuration}s" repeatCount="${repeatCount}" 
@@ -241,11 +246,16 @@ const App = {
       return;
     }
     this.isSettingZoomPoint = !this.isSettingZoomPoint;
+    if (this.isSettingZoomPoint) {
+      this.dialogPanX = 0;
+      this.dialogPanY = 0;
+      this.dialogZoom = 1;
+    }
     this.updatePreview();
   },
 
   handleImageClick(event) {
-    if (!this.isSettingZoomPoint || !this.contextMenu.dialogImage) return;
+    if (!this.isSettingZoomPoint || !this.contextMenu.dialogImage || !this.selectedBlock) return;
     
     const img = event.currentTarget;
     const rect = img.getBoundingClientRect();
@@ -270,11 +280,34 @@ const App = {
       (event.clientY - rect.top - offsetY) / scale
     ));
     
+    this.selectedBlock.parameters = this.selectedBlock.parameters || {};
     this.selectedBlock.parameters.zoomX = Math.round(x);
     this.selectedBlock.parameters.zoomY = Math.round(y);
     this.selectedBlock.parameters.useCenter = false;
     this.isSettingZoomPoint = false;
     this.updatePreview();
+  },
+
+  startImageDrag(event) {
+    if (this.isSettingZoomPoint) return;
+    this.isDraggingImage = true;
+    this.dragStartX = event.clientX - this.dialogPanX;
+    this.dragStartY = event.clientY - this.dialogPanY;
+    document.addEventListener('mousemove', this.handleImageDrag);
+    document.addEventListener('mouseup', this.stopImageDrag);
+    event.preventDefault();
+  },
+
+  handleImageDrag(event) {
+    if (!this.isDraggingImage) return;
+    this.dialogPanX = event.clientX - this.dragStartX;
+    this.dialogPanY = event.clientY - this.dragStartY;
+  },
+
+  stopImageDrag() {
+    this.isDraggingImage = false;
+    document.removeEventListener('mousemove', this.handleImageDrag);
+    document.removeEventListener('mouseup', this.stopImageDrag);
   },
 
   async handleImageUpload(e) {
@@ -340,17 +373,7 @@ const App = {
       return;
     }
     
-    const deletedOrder = imageToDelete.order;
-    this.project.images = this.project.images.filter(img => img.id !== id);
-    this.project.images.forEach(img => { 
-      if (img.order > deletedOrder) img.order--; 
-    });
-    
-    if (this.project.selectedImageId === id) {
-      this.project.selectedImageId = this.project.images.length > 0 ? this.sortedImages[0].id : null;
-    }
-    this.closeContextMenu();
-    this.updatePreview();
+    this.confirmDeleteImage();
   },
 
   confirmDeleteImage() {
@@ -514,6 +537,8 @@ const App = {
     this.contextMenu.showImageDialog = false;
     this.contextMenu.dialogImage = this.project.images.find(img => img.id === imageId);
     this.dialogZoom = 1;
+    this.dialogPanX = 0;
+    this.dialogPanY = 0;
     window.addEventListener('click', this.handleGlobalClick, { once: true });
   },
 
@@ -527,6 +552,8 @@ const App = {
     this.contextMenu.dialogWidth = 60;
     this.contextMenu.dialogHeight = 80;
     this.dialogZoom = 1;
+    this.dialogPanX = 0;
+    this.dialogPanY = 0;
     this.isSettingZoomPoint = false;
   },
 
@@ -537,6 +564,8 @@ const App = {
     this.contextMenu.dialogImage = null;
     this.contextMenu.targetId = null;
     this.dialogZoom = 1;
+    this.dialogPanX = 0;
+    this.dialogPanY = 0;
     this.isSettingZoomPoint = false;
   },
 
@@ -650,7 +679,7 @@ const App = {
   },
 
   getImageForBlock(block) {
-    return this.project.images.find(img => img.id === block.imageId);
+    return this.project.images.find(img => img.id === block?.imageId);
   },
 
   addAnimationBlock(type) {
@@ -695,6 +724,8 @@ const App = {
   },
 
   deleteAnimationBlock(id) {
+    if (!id) return;
+    
     this.project.images.forEach(img => {
       img.animationBlocks = img.animationBlocks.filter(b => b.id !== id);
     });
@@ -706,7 +737,10 @@ const App = {
   },
 
   selectBlock(block) {
-    if (!block) return;
+    if (!block) {
+      this.selectedBlock = null;
+      return;
+    }
     
     const image = this.getImageForBlock(block);
     if (image) {
