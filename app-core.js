@@ -41,6 +41,7 @@ const App = {
   dragOffsetY: 0,
   resizeOffsetX: 0,
   resizeOffsetY: 0,
+  isSettingZoomPoint: false,
 
   get sortedImages() {
     return [...this.project.images].sort((a, b) => a.order - b.order);
@@ -171,7 +172,7 @@ const App = {
       const filterStyle = image.blendMode && image.blendMode !== 'normal' ? `style="mix-blend-mode: ${image.blendMode}"` : '';
       return `<g ${opacityStyle} ${filterStyle} transform="translate(${(previewWidth - scaledWidth) / 2}, ${(previewHeight - scaledHeight) / 2})"><image href="${image.base64Data}" width="${scaledWidth}" height="${scaledHeight}" x="0" y="0">${animationElements}</image></g>`;
     }).join('');
-    return `<svg width="${previewWidth}" height="${previewHeight}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${previewWidth}" height="${previewHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
+    return `<svg width="${previewWidth}" height="${previewHeight}" viewBox="0 0 ${previewWidth} ${previewHeight}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs><clipPath id="canvas-clip"><rect x="0" y="0" width="${previewWidth}" height="${previewHeight}" /></clipPath></defs><g clip-path="url(#canvas-clip)">${imageElements}</g></svg>`;
   },
   async handleImageUpload(e) {
     const files = e.target.files;
@@ -214,6 +215,7 @@ const App = {
   selectImage(id) {
     this.project.selectedImageId = id;
     this.selectedBlock = null;
+    this.isSettingZoomPoint = false;
     this.updatePreview();
   },
   deleteImage(id) {
@@ -359,6 +361,7 @@ const App = {
     this.contextMenu.dialogWidth = 60;
     this.contextMenu.dialogHeight = 80;
     this.dialogZoom = 1;
+    this.isSettingZoomPoint = false;
     window.addEventListener('click', this.handleGlobalClick, { once: true });
   },
   closeContextMenu() {
@@ -368,6 +371,7 @@ const App = {
     this.contextMenu.dialogImage = null;
     this.contextMenu.targetId = null;
     this.dialogZoom = 1;
+    this.isSettingZoomPoint = false;
   },
   handleGlobalClick(event) {
     const dialog = document.querySelector('.image-dialog');
@@ -445,6 +449,18 @@ const App = {
       this.dialogZoom = Math.max(this.dialogZoom - 0.1, 0.5);
     }
   },
+  handleImageClick(event) {
+    if (!this.selectedBlock || this.selectedBlock.type !== 'zoom') return;
+    this.selectedBlock.parameters.useCenter = false;
+    const img = event.currentTarget;
+    const rect = img.getBoundingClientRect();
+    const imageScale = Math.min(rect.width / this.contextMenu.dialogImage.width, rect.height / this.contextMenu.dialogImage.height);
+    const x = (event.clientX - rect.left) / imageScale / this.dialogZoom;
+    const y = (event.clientY - rect.top) / imageScale / this.dialogZoom;
+    this.selectedBlock.parameters.zoomX = Math.round(x);
+    this.selectedBlock.parameters.zoomY = Math.round(y);
+    this.updatePreview();
+  },
   getBlocksForRow(rowIndex) {
     if (!this.selectedImage) return [];
     return this.selectedImage.animationBlocks.filter(b => b.rowIndex === rowIndex);
@@ -501,6 +517,7 @@ const App = {
       if (originalBlock) {
         this.project.selectedImageId = image.id;
         this.selectedBlock = originalBlock;
+        this.isSettingZoomPoint = false;
         this.updatePreview();
       }
     }
