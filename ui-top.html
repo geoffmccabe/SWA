@@ -104,7 +104,7 @@
                 </div>
                 <div class="control-group">
                     <label>Opacity (%)</label>
-                    <input type="number" min="0" max="100" v-model.number="contextMenu.dialogImage.baseOpacity" @input.stop="updateImageProperties(contextMenu.dialogImage.id, 'baseOpacity', Math.min(100, Math.max(0, $event.target.value)))">
+                    <input type="number" min="0" max="100" value="100" v-model.number="contextMenu.dialogImage.baseOpacity" @input.stop="updateImageProperties(contextMenu.dialogImage.id, 'baseOpacity', Math.min(100, Math.max(0, $event.target.value)))">
                 </div>
                 <div class="control-group button-group">
                     <button @click.stop="zoomDialogImage('in')">Zoom +</button>
